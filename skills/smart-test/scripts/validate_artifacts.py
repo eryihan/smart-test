@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
-"""Validate the minimum traceability fields in Smart-Test JSON artifacts."""
+"""Validate the minimum traceability fields in smart_test JSON artifacts."""
 import argparse
 import json
 from pathlib import Path
 import sys
 
 sys.dont_write_bytecode = True
+from catalog import VALIDATED_ARTIFACTS
 from common import emit, relative_file
 
-
-KNOWN = ('business-oracle.json', 'effective-context.json', 'test-policy.json',
-         'test-plan.json', 'status.json')
+KNOWN = VALIDATED_ARTIFACTS
 
 
 def _text(value):
@@ -25,24 +24,41 @@ def _issue(issues, artifact, kind):
     issues.append({'artifact': artifact, 'type': kind})
 
 
+def _oracle_record(item, artifact, issues, prefix='ORACLE'):
+    if item.get('status') == 'UNKNOWN':
+        if not _text(item.get('reason')):
+            _issue(issues, artifact, prefix + '_UNKNOWN_REASON_MISSING')
+        if 'business_truth' in item:
+            _issue(issues, artifact, prefix + '_UNKNOWN_WITH_TRUTH')
+        return
+    if type(item.get('business_truth')) is not bool:
+        _issue(issues, artifact, prefix + '_TRUTH_INVALID')
+    label = ('BUSINESS_TRUTH' if item.get('business_truth') is True else prefix)
+    if prefix == 'REQUIRED_ITEM_ORACLE':
+        label = prefix
+    for key in ('source', 'claim'):
+        if not _text(item.get(key)):
+            _issue(issues, artifact, label + '_' + key.upper() + '_MISSING')
+
+
 def _validate_oracle(data, artifact, issues):
     records = []
-    if isinstance(data, dict) and 'business_truth' in data:
+    if 'business_truth' in data or data.get('status') == 'UNKNOWN':
         records.append(data)
     for key in ('entries', 'items', 'claims', 'oracle'):
         value = data.get(key) if isinstance(data, dict) else None
-        if isinstance(value, list):
+        if key in data and not isinstance(value, list):
+            _issue(issues, artifact, 'ORACLE_ENTRIES_INVALID')
+        elif isinstance(value, list):
             for item in value:
                 if isinstance(item, dict):
                     records.append(item)
                 else:
                     _issue(issues, artifact, 'ORACLE_ENTRY_INVALID')
+    if not records:
+        _issue(issues, artifact, 'ORACLE_ENTRIES_MISSING')
     for item in records:
-        if item.get('business_truth') is True:
-            if not _text(item.get('source')):
-                _issue(issues, artifact, 'BUSINESS_TRUTH_SOURCE_MISSING')
-            if not _text(item.get('claim')):
-                _issue(issues, artifact, 'BUSINESS_TRUTH_CLAIM_MISSING')
+        _oracle_record(item, artifact, issues)
 
 
 def _validate_plan(data, artifact, issues):
@@ -61,30 +77,71 @@ def _validate_plan(data, artifact, issues):
         if not isinstance(item, dict):
             _issue(issues, artifact, 'TEST_PLAN_ITEM_INVALID')
             continue
+        if type(item.get('required')) is not bool:
+            _issue(issues, artifact, 'TEST_PLAN_REQUIRED_INVALID')
         if item.get('required') is not True:
             continue
         for key in ('id', 'target', 'risk', 'suite'):
             if not _text(item.get(key)):
                 _issue(issues, artifact, 'REQUIRED_ITEM_' + key.upper() + '_MISSING')
-        if not _list(item.get('assertions')) or not item['assertions']:
+        blocked = (item.get('status') == 'BLOCKED' and _list(item.get('blocking_ids'))
+                   and bool(item['blocking_ids']) and all(_text(v) for v in item['blocking_ids']))
+        if 'blocking_ids' in item and (not _list(item['blocking_ids'])
+                                       or any(not _text(v) for v in item['blocking_ids'])):
+            _issue(issues, artifact, 'PLAN_BLOCKING_IDS_INVALID')
+        if item.get('status') in {'PASS', 'READY'} and item.get('blocking_ids'):
+            _issue(issues, artifact, 'PLAN_READY_WITH_BLOCKERS')
+        if not _list(item.get('assertions')) or (not item['assertions'] and not blocked):
             _issue(issues, artifact, 'REQUIRED_ITEM_ASSERTIONS_MISSING')
+        elif any(not _text(value) for value in item['assertions']):
+            _issue(issues, artifact, 'REQUIRED_ITEM_ASSERTIONS_INVALID')
         oracle = item.get('oracle')
         if not isinstance(oracle, dict):
             _issue(issues, artifact, 'REQUIRED_ITEM_ORACLE_MISSING')
-        elif oracle.get('business_truth') is True:
-            if not _text(oracle.get('source')):
-                _issue(issues, artifact, 'REQUIRED_ITEM_ORACLE_SOURCE_MISSING')
-            if not _text(oracle.get('claim')):
-                _issue(issues, artifact, 'REQUIRED_ITEM_ORACLE_CLAIM_MISSING')
+        else:
+            _oracle_record(oracle, artifact, issues, 'REQUIRED_ITEM_ORACLE')
+            if oracle.get('status') == 'UNKNOWN' and not blocked:
+                _issue(issues, artifact, 'UNKNOWN_ORACLE_REQUIRES_BLOCKED_ITEM')
 
 
-def _validate_context(data, artifact, issues):
+def _validate_context(data, artifact, issues, root):
+    data = data.get('effective_context', data)
     if not isinstance(data, dict):
         _issue(issues, artifact, 'ROOT_OBJECT_REQUIRED')
         return
+    if not {'directive_ids', 'decision_ids', 'scope', 'constraints', 'conflicts', 'unresolved'}.intersection(data):
+        _issue(issues, artifact, 'CONTEXT_FIELDS_MISSING')
+    for key in ('scope', 'constraints'):
+        if key in data and not isinstance(data[key], dict):
+            _issue(issues, artifact, key.upper() + '_INVALID')
+    for key in ('conflicts', 'unresolved'):
+        if key in data and not _list(data[key]):
+            _issue(issues, artifact, key.upper() + '_INVALID')
+    references = {}
     for key in ('directive_ids', 'decision_ids'):
         if key in data and (not _list(data[key]) or any(not _text(value) for value in data[key])):
             _issue(issues, artifact, key.upper() + '_INVALID')
+        elif data.get(key):
+            references[key] = data[key]
+    if not references:
+        return
+    try:
+        state_path = relative_file(root, '.smart-test/state.json', must_exist=True)
+        state = json.loads(state_path.read_text())
+        if not isinstance(state, dict) or state.get('schema_version') != 1 or state.get('example_only'):
+            raise ValueError('invalid ledger')
+        from state import reconcile
+        reconcile(state, root)  # read-only freshness check; never persist validation
+        for key, ids in references.items():
+            bucket, status = ('directives', 'ACTIVE') if key == 'directive_ids' else ('decisions', 'EFFECTIVE')
+            records = {item['id']: item for item in state[bucket]}
+            for identity in ids:
+                if identity not in records:
+                    _issue(issues, artifact, key.upper() + '_UNKNOWN_REFERENCE')
+                elif records[identity].get('status') != status:
+                    _issue(issues, artifact, key.upper() + '_INACTIVE_REFERENCE')
+    except (ValueError, OSError, KeyError, TypeError, AttributeError):
+        _issue(issues, artifact, 'REFERENCED_STATE_MISSING_OR_INVALID')
 
 
 def _validate_policy(data, artifact, issues):
@@ -104,7 +161,7 @@ def _validate_policy(data, artifact, issues):
     if 'required_suites' in data:
         if not _list(suites):
             _issue(issues, artifact, 'REQUIRED_SUITES_INVALID')
-        elif any(not (_text(item) or isinstance(item, dict)) for item in suites):
+        elif any(not (_text(item) or (isinstance(item, dict) and _text(item.get('suite')))) for item in suites):
             _issue(issues, artifact, 'REQUIRED_SUITE_ENTRY_INVALID')
 
     for key in ('verification', 'environment', 'coverage', 'production_change_boundary'):
@@ -136,12 +193,41 @@ def _validate_policy(data, artifact, issues):
 
 
 def _validate_status(data, artifact, issues):
-    if not isinstance(data, dict):
-        _issue(issues, artifact, 'ROOT_OBJECT_REQUIRED')
-        return
-    if data.get('status') == 'PASS':
-        if data.get('blocking_ids') or data.get('blockers'):
+    allowed = {'NOT_STARTED', 'PROPOSED', 'READY', 'PARTIAL', 'BLOCKED', 'FAILED',
+               'PASS', 'STALE', 'NOT_VERIFIED', 'UNKNOWN', 'NOT_APPLICABLE', 'NOT_RUN'}
+    children = []
+    if 'stages' in data:
+        if not isinstance(data['stages'], dict) or not data['stages']:
+            _issue(issues, artifact, 'STATUS_STAGES_INVALID')
+        else:
+            children = list(data['stages'].values())
+    else:
+        # Legacy per-phase objects at the root remain supported.
+        children = [value for value in data.values()
+                    if isinstance(value, dict) and ('status' in value or 'blocking_ids' in value)]
+    status = data.get('status')
+    if status is not None and (not isinstance(status, str) or status not in allowed):
+        _issue(issues, artifact, 'STATUS_INVALID')
+    if status is None and not children:
+        _issue(issues, artifact, 'STATUS_MISSING')
+    has_blockers = False
+    for key in ('blocking_ids', 'blockers'):
+        if key in data and not _list(data[key]):
+            _issue(issues, artifact, key.upper() + '_INVALID')
+        has_blockers = has_blockers or bool(data.get(key))
+    if status == 'PASS' and has_blockers:
+        _issue(issues, artifact, 'PASS_WITH_BLOCKERS')
+    unfinished = status not in {None, 'PASS', 'NOT_APPLICABLE'} if isinstance(status, (str, type(None))) else True
+    for child in children:
+        if not isinstance(child, dict):
+            _issue(issues, artifact, 'STATUS_STAGE_INVALID')
+            unfinished = True
+            continue
+        child_unfinished = _validate_status(child, artifact, issues)
+        if status == 'PASS' and child_unfinished:
             _issue(issues, artifact, 'PASS_WITH_BLOCKERS')
+        unfinished = unfinished or child_unfinished
+    return unfinished or has_blockers
 
 
 def validate(root, required=()):
@@ -174,7 +260,7 @@ def validate(root, required=()):
         elif name == 'test-plan.json':
             _validate_plan(data, name, issues)
         elif name == 'effective-context.json':
-            _validate_context(data, name, issues)
+            _validate_context(data, name, issues, root)
         elif name == 'test-policy.json':
             _validate_policy(data, name, issues)
         elif name == 'status.json':

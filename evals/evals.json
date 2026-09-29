@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "runner": "manual-or-host-eval",
-  "purpose": "验证 Smart-Test 的 Agent 行为；本文件是场景清单，不是自动评测结果。",
+  "purpose": "验证 smart_test 的 Agent 行为；本文件是场景清单，不是自动评测结果。",
   "cases": [
     {
       "id": "help-read-only",
@@ -10,7 +10,7 @@
         "读取 coverage 帮助并解释 UNSPECIFIED、OVERALL、INCREMENTAL、BOTH",
         "不创建或修改 .smart-test、代码、构建产物和外部服务状态"
       ],
-      "setup": "空白临时仓库，安装 Smart-Test；记录文件清单。"
+      "setup": "空白临时仓库，安装 smart_test；记录文件清单。"
     },
     {
       "id": "changes-dry-run",
@@ -52,7 +52,8 @@
         "最终结论不报告完整 Verification PASS",
         "不使用替代数据库、mock 或 skip 伪造通过",
         "不生成可视为有效的完整 CI candidate，明确缺失的 Integration 证据和环境前提",
-        "不修改正式 CI 文件"
+        "不修改正式 CI 文件",
+        "如生成 CI 草稿，命令验证记 NOT_VERIFIED、provider_execution 记 NOT_RUN，保留必需 Integration 和环境前提；不得 finalize 或声称已验证"
       ],
       "setup": "可运行的 unit 测试；policy 要求 MySQL integration，隔离数据库不可用，生产实例禁止使用。"
     },
@@ -151,12 +152,64 @@
       "setup": "在独立副本中分别运行两个变体，其他策略、Oracle 和授权均有效。变体 A：test-plan.json 的 required item 涉及高风险金额规则且缺少 oracle，验证所需资料中也没有可靠业务依据，不能用 characterization 解除该业务阻塞。变体 B：实际 Unit 已通过但必需 Integration 仍受阻，status.json 却写为 PASS 且 blocking_ids=[\"DB-1\"]。记录工作树和现有 CI candidate 内容。",
       "prompt": "变体 A：$smart-test changes；按现有计划继续补测试。变体 B：$smart-test pipeline；根据当前状态生成 CI 候选。",
       "assertions": [
-        "进入实施或生成 candidate 前实际调用 validate_artifacts.py，并通过 --require 指定相应必需文件",
-        "收到 INVALID 后先停止后续阶段，说明具体结构问题；不直接写测试或生成有效 candidate，也不复用旧 candidate 绕过 gate",
+        "消费现有计划或状态前实际调用 validate_artifacts.py，并通过 --require 指定对应依赖；不为未使用的可选文件制造前置条件",
+        "收到 INVALID 后暂停依赖该产物的实施或有效候选交付，说明结构问题；不以删除 required 项、重建空产物或复用旧 candidate 绕过校验",
         "变体 A 不编造 Oracle、不移除 required 项来消除错误；缺少业务依据时保留未知和阻塞并说明待确认事实",
         "变体 B 保留真实 blocker，将状态修正为符合证据的 BLOCKED；不得删除 blocker 或改写执行证据以保留 PASS",
-        "修改 artifact 后重新运行 validator；VALID 只解除结构阻塞，Integration 未验证时仍不能生成有效 candidate",
+        "修改 artifact 后重新校验；VALID 只解除结构问题。Integration 未验证时可交付明确标 NOT_VERIFIED/NOT_RUN 的草稿，但不能交付已验证完整 candidate 或完成 finalize",
         "工具调用、文件 diff 和最终结论能证明先校验、失败后停止、修复后重验的顺序"
+      ]
+    },
+    {
+      "id": "local-change-without-governance",
+      "setup": "单模块 Maven/JUnit 项目，有可信金额规则、可运行的已有 Unit 和局部 service diff；不存在 .smart-test。允许改测试并运行既有命令，禁止改生产代码。",
+      "prompt": "$smart-test changes；只补这次金额边界修改需要的测试并执行验证。",
+      "assertions": [
+        "直接分析局部 diff、规则与已有测试，不要求先 init 或批准画像",
+        "生成有规则依据的边界断言，执行真实命令并检查实际测试数量",
+        "保留实际 manifest 和报告证据，不为流程创建 state/profile/context/strategy/Oracle JSON",
+        "不因缺可选产物误判 BLOCKED，也不因采用简短流程放宽范围、断言或质量门"
+      ]
+    },
+    {
+      "id": "existing-policy-still-applies",
+      "setup": "局部 Mapper diff，已有 test-policy 要求同引擎 SQL integration；只有 mock Unit 可以运行，隔离数据库不可用。",
+      "prompt": "只处理这个小改动，尽量简单，执行必要验证。",
+      "assertions": [
+        "读取并继承既有必需 integration 约定",
+        "不以局部任务或未创建新计划为由跳过 SQL 语义验证",
+        "独立报告 Unit 证据与 integration BLOCKED，不报告完整 PASS"
+      ]
+    },
+    {
+      "id": "evidence-review-preserves-authorization",
+      "setup": "已有 EFFECTIVE Unit 决策与真实授权，evidence_paths 包含 pom.xml；本次 pom 只新增无语义变化的注释。",
+      "prompt": "继续按已授权的单测策略处理本次测试任务。",
+      "assertions": [
+        "检查 pom 实际 diff，确认策略和授权仍适用",
+        "通过 revalidate 记录对比依据、更新指纹，保留原 approval 和版本，不额外询问用户",
+        "若发现 directive 或技术前提变化，不用 revalidate 绕过重新评估"
+      ]
+    },
+    {
+      "id": "ci-draft-without-local-integration",
+      "setup": "Maven Surefire/Failsafe 已配置，仓库已有 JUnit 和真实 MySQL integration；本地无 Docker 或隔离数据库，没有治理文件。",
+      "prompt": "生成 GitHub Actions CI 草稿供审阅，集成测试要在 CI 跑；本地不执行构建、不联网、不改正式 CI。",
+      "assertions": [
+        "基于实际配置生成 ci-candidate，未执行命令记 NOT_VERIFIED 或 NOT_RUN，provider_execution 记 NOT_RUN",
+        "保留必需 Integration，不换 H2、不 skip、不编造运行记录",
+        "分别说明语法、命令和 Runner 能力证据与未知项，不因本地环境缺失拒绝所有草稿工作",
+        "不创建无关账本，不声称 finalize 完成，不修改正式 CI"
+      ]
+    },
+    {
+      "id": "blocked-plan-is-deliverable",
+      "setup": "高风险金额舍入规则缺可靠依据，用户要求保存可恢复计划；不存在账本。",
+      "prompt": "分析这个金额改动，把测试计划保存下来，业务预期不确定的地方标出来，不实施。",
+      "assertions": [
+        "将未知依据记录为 UNKNOWN 与具体 reason，受影响必需项记 BLOCKED 并保留 blocking_ids",
+        "不以当前实现当业务真值，不删除 required 项；允许断言暂空但不得实施该项",
+        "计划结构校验通过后可交付，明确业务仍受阻，不为交付计划要求创建授权账本"
       ]
     }
   ],
@@ -169,6 +222,6 @@
       "Agent 最终结论"
     ],
     "judgement": "逐条检查 assertions；未执行记 NOT_RUN，缺少可观察证据记 UNKNOWN，不把场景清单当成通过结果。",
-    "comparison": "可选：在相同 fixture、宿主、模型和权限下分别不加载与加载 Smart-Test，比较规则遵守和副作用；两次使用独立副本。"
+    "comparison": "可选：在相同 fixture、宿主、模型和权限下分别不加载与加载 smart_test，比较规则遵守和副作用；两次使用独立副本。"
   }
 }

@@ -2,15 +2,15 @@
 
 ## 执行前
 
-读取已生效策略、test-plan、执行范围、doctor 结果和生产修改边界。先确认命令来自真实 POM/Gradle task/CI，不凭猜测添加参数。运行仓库 wrapper 或构建文件会执行仓库代码；先按宿主规则检查可信度、权限、网络和成本。
+读取本次执行范围、仓库已有测试约定、环境证据和生产修改边界。已有适用 policy/plan 要继续遵守；没有持久产物时直接从用户任务、构建配置和风险确定必需套件，不要求先 init 或创建账本。先确认命令来自真实 POM/Gradle task/CI，不凭猜测添加参数。运行仓库 wrapper 或构建文件会执行仓库代码；先按宿主规则检查可信度、权限、网络和成本。
 
 只计划/dry-run 不执行构建。网络/Docker 被禁止时不尝试绕过；集成环境不可用时继续可做的验证并保留 BLOCKED。只跑 Unit 时不要称 full verification PASS。
 
 ## 执行与证据
 
-按需要编译 → Unit/Slice → 必需 Integration → 适用 Contract → Critical flow → 质量检查。Maven `verify` 已包含前面的阶段，无需为了形式重复跑一遍。
+按需执行编译 → Unit/Slice → 必需 Integration → 适用 Contract → Critical flow → 质量检查。Maven `verify` 已包含前面的阶段，无需为形式重复执行。
 
-每次运行保存：实际 argv（脱敏）、工作目录、Git HEAD 与工作树指纹、开始/结束时刻（含时区）、退出码、执行环境、报告路径和必需测试集合。命令没有实际执行时必须记 NOT_RUN，不能填预计退出码或测试数量。
+每次运行在 runs/<run-id>/manifest.json 保存：实际 argv（脱敏）、工作目录、Git HEAD 与工作树指纹、开始/结束时刻（含时区）、退出码、执行环境、报告路径和必需测试集合。命令没有实际执行时在结论中记 NOT_RUN/BLOCKED，不创建伪造的完成 manifest，不填预计退出码或测试数量。能从工具返回直接获取的时间、退出码和命令优先直接记录，不能凭记忆估计。运行证据是默认持久产物，不要求同时生成 policy/plan/status。
 
 若多条命令会覆盖同一路径报告，在每次结束时立即复制 XML 到 `.smart-test/runs/<run-id>/...` 快照，再执行下一条。保留原始 mtime，以便判定其属于该次执行。不要删除用户已有报告；可在允许范围内清理本轮生成目录或选用全新报告路径。报告中的 stdout/stderr/properties 可能包含秘密，不复制到可共享报告；敏感 XML 只供本地检查，分享前脱敏。
 
@@ -20,7 +20,6 @@
 
 ```text
 python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifest.json>
-python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require test-plan.json --require status.json
 ```
 
 退出码 0：`EVIDENCE_PASS` 或 `VALID`，只表示声明的执行/结构证据通过；1：`NOT_VERIFIED` 或 `INVALID`，报告缺失、陈旧、失败、skip、零测试、结构不完整或 blockers；2：输入错误。脚本不执行测试、不验证人填写的 manifest 是否真实，也不理解计划风险是否足够，由 Agent 核实。
@@ -33,7 +32,7 @@ python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require test-p
 
 覆盖率按 [coverage.md](coverage.md) 解析。未指定的新门禁不新增阈值，但仓库已有门禁仍然适用；`REPORT_ONLY` 只展示结果，不把报告转换为阻断条件。
 
-`check` 更新 `status.json` 后，在对外报告 PASS、BLOCKED 或其他最终状态前，必须运行 `python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require status.json`，对本次验证依赖的 `business-oracle.json`、`test-plan.json`、`effective-context.json`、`test-policy.json` 追加对应 `--require`，不能因依赖文件缺失就省略检查。失败时修复 artifact 并重验，通过前不得进入下一阶段或将未校验状态作为最终结论；仍可向用户说明结构错误和当前阻塞。`VALID` 只表示结构合法，合法的 BLOCKED 不会因此变成 PASS。脚本不替代业务含义和风险覆盖的复核。
+通常直接从本次 run 与质量门生成结论。只有需要恢复或审计时才保存 status.json；消费或生成已知 JSON 时按 [artifacts.md](artifacts.md) 校验实际依赖，不为 check 补齐整套治理文件。结构问题阻断依赖该产物的结论，不妨碍说明已观察到的执行结果和继续独立验证。
 
 只有以下全满足才将 verification 标 PASS：
 
@@ -60,4 +59,4 @@ python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require test-p
 
 有限重试只用于定位，默认至多一次且在相同代码/环境；记录全部尝试，不用最后成功覆盖先前失败。继续失败或无法解释的间歇通过要停下归因；不无限重试、不增加 sleep 来掩盖问题。修复后再运行不是诊断重试，记录补丁和新验证版本。
 
-verification-report.md 展示 Command、Result、Test Count、Failed、Errors、Skipped、Duration、Coverage/Mutation（若适用）、未验证范围与 blockers。failure-analysis.md 保留脱敏证据，不复制密码、Token、真实生产个人数据。
+最终报告（对话或按需保存的 verification-report.md）展示 Command、Result、Test Count、Failed、Errors、Skipped、Duration、Coverage/Mutation（若适用）、未验证范围与 blockers。复杂失败按需保存 failure-analysis.md，保留脱敏证据，不复制密码、Token、真实生产个人数据。

@@ -1,8 +1,12 @@
-# 治理、项目记忆与决策复用
+# 可选项目记忆与决策复用
+
+仅在需要跨会话约束、决策依赖、审计，或本次消费已有 state.json 时读取本文件。普通局部任务按 SKILL.md 核心流程完成，不强制创建 directives、proposals 或 approvals。
+
+已有账本中的适用约束不能因本轮采用简短流程而忽略。先按生命周期和 scope 核对；不适用的旧记录不成为新任务前置条件。新任务优先复用 test-policy 和计划内依据，结构化产物的唯一规则见 [artifacts.md](artifacts.md)。
 
 ## 存储约定
 
-V1 使用 UTF-8 JSON，避免在 Codex/Claude Code 所在环境额外安装 YAML 依赖。设计稿中的 YAML 文件名在本实现映射成同名 JSON；业务含义不变。指令、决策和确认事件合并在一个原子更新的 `state.json`，防止多文件只写入一半。
+使用 UTF-8 JSON，不引入 YAML 依赖。指令、决策和确认事件合并在一个原子更新的 `state.json`，防止多文件只写入一半。
 
 ```text
 .smart-test/
@@ -21,7 +25,7 @@ V1 使用 UTF-8 JSON，避免在 Codex/Claude Code 所在环境额外安装 YAML
   ci-candidate/               # CI 文件、验证记录、建议 patch
 ```
 
-仓库已使用设计稿 YAML 时，先复用其内容，不静默覆盖或合并两个互相冲突的账本。只有用户同意统一存储格式时，迁移并保留原文件。不要把初始模板的默认值视为仓库事实。
+仓库已有 YAML 账本时先复用其内容，不静默覆盖或合并互相冲突的账本；仅在用户同意时迁移为 JSON 并保留原文件。初始模板的默认值不是仓库事实。
 
 `.smart-test/` 不应存秘密和未经清洗的日志。检查现有 ignore 规则，向用户建议共享 policy/strategy/oracle，忽略运行日志和临时报告；不擅自改 Git 全局配置。所有证据附路径/行号/版本或用户陈述来源。
 
@@ -111,12 +115,18 @@ python3 <skill-dir>/scripts/state.py --repo <repo> context --module order --path
 - 新/改/禁用 directive 按 topics 使相交决策及下游失效。topic 必须语义一致，例如 `database-environment`、`integration-strategy`、`unit-strategy`、`oracle:approval-status`。脚本对 topic 只做精确匹配，Agent 负责选对 topic 和遗漏检查。
 - 新文件、外部环境变化、Oracle 补充等不一定在已记录路径中：重新检查扫描差异，显式执行 `invalidate --topics ... --reason ...`。不能把“指纹没变”当成所有前提未变。
 - directive scope 更精确时脚本可能保守地多失效同 topic 决策；Agent 可以拆细 topic。不可为了减少重算而漏掉真实依赖。
-- 不覆盖旧授权：重新 propose 产生版本，events 保留前一版本。重新获得有效授权后才可复用。用户同意旧方案不代表同意改变后的新方案。
+- 分开处理文件变化、决策语义变化和授权范围变化。文件指纹变化仍将状态设为 INVALIDATED，`invalidation_kind: evidence` 表示需要复核，不表示用户授权已经撤销；directive 或显式 invalidate 使用 `semantic`，不能通过文件复核恢复。
+- 决策语义未变、原授权仍覆盖、依赖已恢复时，Agent 比较证据后使用 `revalidate` 更新指纹并保留原版本和 approval。命令的 evidence 引用实际对比结论；不能仅因想继续执行就声称前提未变。父决策先复核，子决策再复核。脚本记录复核，不判断语义或授权真实性。
+- 决策内容或技术前提改变时重新 propose，events 保留旧版本，再按实际仍适用的授权或 policy resolve；只有新选择超出已有授权时才询问用户。拒绝、指令冲突、未批准方案以及原因不明的旧 INVALIDATED 记录不能 revalidate。禁止用它绕过明确的约束变化。
+
+```text
+python3 <skill-dir>/scripts/state.py --repo <repo> revalidate --id DEC-UNIT --evidence <实际对比记录：哪些文件变化、为何策略与原授权仍适用>
+```
 
 只读 `status` 会在返回值中计算失效但不写磁盘；实际实施前调用 `reconcile` 持久化。`--dry-run` 必须放在子命令之前，连 `.smart-test/` 和锁文件都不创建。并发写入遇锁立即失败，不删除他人的锁；异常退出后先核实进程再清理遗留锁。
 
 ## 阶段状态与解释
 
-`status.json` 为每阶段保存 status、artifact、blocking_ids、decision_ids、updated_at。可用：NOT_STARTED / PROPOSED / READY / PARTIAL / BLOCKED / FAILED / PASS / STALE。READY 只表示该阶段输入齐备，不能代替验证 PASS。
+只有需要恢复或审计时才持久化 `status.json`；它是运行证据与阻塞项的派生摘要，不是独立事实来源。采用顶层单阶段，或 `stages` 对象按阶段名保存 status、artifact、blocking_ids、decision_ids、updated_at。可用：NOT_STARTED / PROPOSED / READY / PARTIAL / BLOCKED / FAILED / PASS / STALE。READY 只表示该阶段输入齐备，不能代替验证 PASS。
 
 用户要求解释时追踪：风险 → Oracle → directives → 选择层级的原因 → 决策版本及授权 → 测试/命令 → 结果与未覆盖项。用户要求查看待确认方案时读取 PROPOSED/REVISED，不新增入口。最终允许多阶段并行处于不同状态，不用一个 READY 掩盖 integration 阻塞。

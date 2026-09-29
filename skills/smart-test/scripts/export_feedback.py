@@ -12,25 +12,8 @@ import sys
 import uuid
 
 sys.dont_write_bytecode = True
+from catalog import ARTIFACTS, FEEDBACK_TYPES, HOSTS, SIGNALS, STATUSES, SUITES, WORKFLOWS
 from common import emit, relative_file, safe_name
-
-WORKFLOWS = {'help', 'init', 'scan', 'changes', 'check', 'pipeline'}
-HOSTS = {'codex', 'claude-code', 'unknown'}
-FEEDBACK_TYPES = {'FALSE_PASS', 'FALSE_BLOCKED', 'WRONG_STRATEGY', 'WRONG_SCOPE',
-                  'ORACLE_ERROR', 'DIRECTIVE_IGNORED', 'MISSING_CAPABILITY',
-                  'UX_CONFUSION', 'PERFORMANCE', 'OTHER'}
-STATUSES = {'NOT_STARTED', 'PROPOSED', 'READY', 'PARTIAL', 'BLOCKED', 'FAILED',
-            'PASS', 'STALE', 'NOT_VERIFIED', 'UNKNOWN', 'NOT_APPLICABLE',
-            'NOT_RUN', 'EVIDENCE_PASS', 'VALID', 'INVALID', 'DISCOVERED'}
-SUITES = {'unit', 'slice', 'integration', 'contract', 'e2e', 'critical-flow'}
-SIGNALS = {'spring-boot', 'mybatis', 'jpa', 'mysql', 'postgresql', 'h2', 'redis',
-           'kafka', 'rocketmq', 'rabbitmq', 'flyway', 'liquibase', 'security',
-           'http-client', 'rpc', 'junit5', 'junit4', 'testng', 'mockito', 'assertj',
-           'spring-test', 'testcontainers', 'jacoco', 'pact', 'pitest', 'surefire',
-           'failsafe', 'transaction', 'authorization', 'concurrency',
-           'sql-mapping', 'database-migration'}
-ARTIFACTS = ('project-profile.json', 'effective-context.json', 'business-oracle.json',
-             'test-policy.json', 'test-plan.json', 'status.json')
 MAX_BYTES = 2_000_000
 MAX_ITEMS = 1000
 MAX_RUN_FILES = 100
@@ -139,6 +122,24 @@ def summarize(name, data):
     elif name == 'status.json':
         result.update(blocking_count=count(data.get('blocking_ids')),
                       blocker_count=count(data.get('blockers')))
+        stages, pending, stage_count = [], [data], 0
+        while pending:
+            parent = pending.pop()
+            children = obj(parent.get('stages')) if 'stages' in parent else {
+                k: v for k, v in parent.items() if isinstance(v, dict)
+                and ('status' in v or 'blocking_ids' in v)}
+            for child in children.values():
+                if not isinstance(child, dict):
+                    continue
+                stage_count += 1
+                if len(stages) < MAX_ITEMS:
+                    stages.append({'stage': stage_count,
+                                   'status': enum(child.get('status'), STATUSES),
+                                   'blocking_count': count(child.get('blocking_ids')),
+                                   'blocker_count': count(child.get('blockers'))})
+                pending.append(child)
+        result['stages'] = stages
+        result['stage_count'] = stage_count
     return result
 
 

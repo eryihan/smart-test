@@ -1,14 +1,16 @@
-# 从已验证命令生成 CI
+# CI 候选与分项验证
 
 ## pipeline
 
-输入必须包含：当前有效策略/policy（包括 [coverage policy](coverage.md)）、完整所需验证的 PASS、实际命令和报告、Java/build 版本、Runner/网络/容器能力证据、secret 名称而非值。只有 Unit 通过而必需 Integration BLOCKED 时，不生成可当作有效流水线的 candidate；可在报告中说明缺什么。
+先从用户目标、仓库已有构建/CI、适用测试约定和实际运行记录确定命令、套件与环境要求。没有 policy/plan/Oracle 文件不妨碍生成候选；已有适用要求仍须继承。Java/build 版本、Runner/网络/容器条件和 secret 引用分别记录来源，未知项明确列出。
 
-生成 candidate 前必须运行 `python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require business-oracle.json --require effective-context.json --require test-policy.json --require test-plan.json --require status.json`。校验返回 `INVALID` 时不得生成或继续使用可视为有效的 CI candidate；输入错误或校验未执行也不满足前提。先修复 artifact 并重验，再核对所需验证是否确实 PASS。`VALID` 本身不证明执行通过，不能覆盖 BLOCKED、陈旧证据或业务冲突。后续 verify / finalize 若更新这些产物，同样先重验再继续。
+本地缺数据库但需要借助 CI 验证时，可先生成草稿并标 `command_verification: NOT_VERIFIED`、`provider_execution: NOT_RUN`，列出未执行套件与环境前提。没有可信命令来源或必要业务选择未定时，只生成可确定部分并标明缺口，不捏造有效完整流水线。草稿不宣称已验证，也不绕过 finalize 前提。
+
+生成或更新本次实际消费的结构化产物时，按 [artifacts.md](artifacts.md) 选择校验文件，不固定要求五类产物。输入结构错误先修复并重验；真实 BLOCKED 状态可用于生成带明确限制的草稿，不能把它改成 PASS 或复用陈旧 candidate 冒充有效结果。
 
 没有指明 provider 时复用仓库已有 provider；没有 CI 且用户未指定时，先给候选选择及理由，未获授权不改正式位置。支持 GitHub Actions、GitLab CI；其他 provider 依据其现有约定生成并说明验证边界，不伪造 provider 已验证。
 
-候选文件写 `.smart-test/ci-candidate/github-actions.yml` 或 `gitlab-ci.yml`。随附验证说明：来源 run IDs、工作树指纹、每个 job 的命令和 suite、runner 要求、secrets 名称、报告路径、状态。避免维护一个看似通用但未经执行的硬编码模板。
+候选文件写 `.smart-test/ci-candidate/github-actions.yml` 或 `gitlab-ci.yml`，验证说明另存同目录 Markdown。随附来源命令与已有 run IDs（未执行时明确无 run）、工作树指纹、每个 job 的命令和 suite、runner 要求、secrets 名称、报告路径、状态。分别记录 `command_verification`、`syntax_validation`、`provider_execution`，使用 VERIFIED / FAILED / UNKNOWN / NOT_RUN / NOT_VERIFIED；不能用候选已生成代表任何验证完成。避免维护一个看似通用但未经执行的硬编码模板。
 
 按实际需求映射：
 
@@ -18,7 +20,7 @@
 | Verification | merge candidate | 所需 integration、contract、关键 API flow |
 | Deep | 手动/nightly/release | 明确要求的全回归、选择性 mutation 等 |
 
-项目不需要三层时可少建；不要为补齐表格加入没验证过的命令。Maven verify 本身包含快速测试，解释重复执行的代价或复用单 job。仅缓存依赖，不缓存结果来绕过测试。
+项目不需要三层时可少建；不要为补齐表格加入无依据的命令；尚未执行的必要命令保留来源与待验证标记。Maven verify 本身包含快速测试，解释重复执行的代价或复用单 job。仅缓存依赖，不缓存结果来绕过测试。
 
 ## pipeline verify
 
@@ -36,6 +38,6 @@
 
 ## pipeline finalize
 
-重新核查决策、文件指纹、完整验证结果和 candidate checks。验证通过后，生成应用到现有 CI 的最小 patch，保留其他 job/trigger/secrets/权限/缓存设置；不覆盖整个原文件。标注 provider 实跑状态和剩余环境条件。
+重新核查当前约定、验证版本、完整所需验证结果和 candidate checks；启用账本时同时核查决策。只有完整所需命令已在本地或等价 CI 环境验证、结构/语法检查通过、必要 Runner 能力有证据时，生成应用到现有 CI 的最小 patch，保留其他 job/trigger/secrets/权限/缓存设置；不覆盖整个原文件。标注 provider 实跑状态和剩余环境条件。
 
-默认交付 patch 与建议，不直接覆盖正式 CI。已有用户明确授权安装该已验证变更时应用补丁，并做相应检查；否则只在具体 patch 就绪后请求批准。用户拒绝后停止该方案。CI 内容、测试命令或前提发生变化，原 CI 决策先 INVALIDATED，再按受影响范围重新验证。
+未满足前提时交付草稿及明确缺口，不能将 finalize 报告为已完成。默认交付 patch 与建议，不直接覆盖正式 CI。已有用户明确授权安装该已验证变更时应用补丁，并做相应检查；否则只在具体 patch 就绪后请求批准。用户拒绝后停止该方案。CI 内容、测试命令或前提发生变化，按受影响范围重新验证；启用账本时同时更新失效记录。为获得首次远端执行而安装草稿，必须有用户针对未验证候选及其范围的明确授权，保持未验证标记，不冒充 finalize 成功。

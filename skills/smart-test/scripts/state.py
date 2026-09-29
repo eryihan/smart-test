@@ -47,7 +47,7 @@ def find(state, bucket, identity):
     raise ValueError('unknown ' + bucket + ' id: ' + identity)
 
 
-def invalidate(state, topics=(), ids=(), reason='assumptions changed'):
+def invalidate(state, topics=(), ids=(), reason='assumptions changed', kind='semantic'):
     affected = set(ids)
     for decision in state['decisions']:
         if set(decision['topics']) & set(topics):
@@ -59,12 +59,18 @@ def invalidate(state, topics=(), ids=(), reason='assumptions changed'):
         affected = expanded
     changed = []
     for decision in state['decisions']:
-        if decision['id'] in affected and decision['status'] in {'EFFECTIVE', 'PROPOSED'}:
+        if decision['id'] not in affected:
+            continue
+        # A later constraint change must not be downgraded to a file-only review.
+        upgrade = (decision['status'] == 'INVALIDATED' and kind == 'semantic'
+                   and decision.get('invalidation_kind') == 'evidence')
+        if decision['status'] in {'EFFECTIVE', 'PROPOSED'} or upgrade:
             decision['status'] = 'INVALIDATED'
             decision['invalidation_reason'] = reason
+            decision['invalidation_kind'] = kind
             changed.append(decision['id'])
     if changed:
-        event(state, 'INVALIDATE', decisions=sorted(changed), reason=reason)
+        event(state, 'INVALIDATE', decisions=sorted(changed), reason=reason, kind=kind)
     return sorted(changed)
 
 
@@ -84,7 +90,7 @@ def reconcile(state, root):
         expected = decision['evidence_fingerprints']
         if fingerprints(root, expected) != expected:
             stale.append(decision['id'])
-    return invalidate(state, ids=stale, reason='evidence file added, changed or deleted')
+    return invalidate(state, ids=stale, reason='evidence file added, changed or deleted', kind='evidence')
 
 
 def validate_directive(item):
@@ -242,6 +248,23 @@ def apply(state, root, args, payload=None):
             item['resolution'] = {'action': args.action, 'evidence': args.evidence, 'at': now()}
         event(state, 'RESOLVE', id=item['id'], action_taken=args.action, evidence=args.evidence)
         return {'decision': item, 'invalidated': changed_by_evidence}
+    if command == 'revalidate':
+        item = find(state, 'decisions', args.id)
+        nonempty(args.evidence, 'review evidence')
+        if (item['status'] != 'INVALIDATED' or item.get('invalidation_kind') != 'evidence'
+                or not item.get('approval')):
+            raise ValueError('only a previously approved, evidence-invalidated decision may be revalidated')
+        for dep in item['depends_on']:
+            if find(state, 'decisions', dep)['status'] != 'EFFECTIVE':
+                raise ValueError('review dependencies first: ' + dep)
+        previous = copy.deepcopy(item)
+        item['evidence_fingerprints'] = fingerprints(root, item['evidence_paths'])
+        item['status'] = 'EFFECTIVE'
+        item.pop('invalidation_kind', None)
+        item.pop('invalidation_reason', None)
+        item['review'] = {'evidence': args.evidence, 'at': now()}
+        event(state, 'REVALIDATE', id=item['id'], previous=previous, value=copy.deepcopy(item))
+        return {'decision': item, 'invalidated': changed_by_evidence}
     if command == 'invalidate':
         return {'invalidated': invalidate(state, topics=args.topics, reason=args.reason)}
     raise ValueError('unknown command')
@@ -262,6 +285,9 @@ def main():
     p.add_argument('--action', required=True, choices=['confirm', 'modify', 'reject'])
     p.add_argument('--source', choices=['user', 'human-directive', 'policy'], default='user')
     p.add_argument('--evidence', required=True, help='reference to actual user authorization or covering policy')
+    p = sub.add_parser('revalidate', help='record review of unchanged decision semantics and authorization after file changes')
+    p.add_argument('--id', required=True)
+    p.add_argument('--evidence', required=True, help='reference to the comparison proving the existing decision and authorization still apply')
     p = sub.add_parser('invalidate')
     p.add_argument('--topics', required=True, nargs='+')
     p.add_argument('--reason', required=True)

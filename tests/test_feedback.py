@@ -83,6 +83,29 @@ class FeedbackExportTests(unittest.TestCase):
         self.assertEqual(feedback['root_cause'], 'UNKNOWN')
         self.assertIsNone(feedback['expected_behavior'])
 
+    def test_nested_stage_statuses_are_exported_without_names_or_blocker_text(self):
+        self.put('.smart-test/status.json', {'status': 'PARTIAL', 'stages': {
+            'private-unit-stage': {'status': 'PASS', 'blocking_ids': []},
+            'private-db-stage': {'status': 'BLOCKED', 'blockers': ['secret-db-location'],
+                                 'stages': {'private-child': {'status': 'NOT_RUN'}}},
+        }})
+        self.export()
+        summary = self.read('status.json')['summary']
+        self.assertEqual(summary['status'], 'PARTIAL')
+        self.assertEqual([s['status'] for s in summary['stages']], ['PASS', 'BLOCKED', 'NOT_RUN'])
+        self.assertEqual(summary['stages'][1]['blocker_count'], 1)
+        text = (self.output / 'status.json').read_text()
+        self.assertNotIn('private-', text)
+        self.assertNotIn('secret-db-location', text)
+
+    def test_legacy_stage_summary_and_stage_limit(self):
+        summary = exporter.summarize('status.json', {'verification': {'status': 'PASS'}})
+        self.assertEqual(summary['stages'][0]['status'], 'PASS')
+        data = {'stages': {str(i): {'status': 'NOT_RUN'} for i in range(exporter.MAX_ITEMS + 2)}}
+        summary = exporter.summarize('status.json', data)
+        self.assertEqual(len(summary['stages']), exporter.MAX_ITEMS)
+        self.assertEqual(summary['stage_count'], exporter.MAX_ITEMS + 2)
+
     def test_missing_artifacts_still_produce_explicit_empty_summaries(self):
         self.export(host_version=None)
         for name in exporter.ARTIFACTS:

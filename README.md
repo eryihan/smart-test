@@ -1,8 +1,8 @@
-# Smart-Test 使用说明
+# smart_test 使用说明
 
-Smart-Test 是一个面向 Java / Spring Boot 仓库的测试工程 skill。它会读取仓库结构、业务依据、现有测试和当前变更，形成测试策略，补充测试，执行验证，并生成经过验证的 CI 候选方案。
+smart_test 面向 Java / Spring Boot 仓库：读取仓库结构、业务依据、现有测试和当前变更，形成测试策略，补充测试，执行验证，生成 CI 候选方案，并区分已验证与待验证部分。
 
-当前版本主要支持 Java 8+、Spring Boot 2/3、Maven 和 Gradle。数据库、Redis、消息队列和远程服务测试需要相应的隔离环境；环境不可用时，Smart-Test 会标记阻塞并保留可执行的部分。
+支持 Java 8+、Spring Boot 2/3、Maven 和 Gradle。数据库、Redis、消息队列和远程服务测试需要相应的隔离环境；环境不可用时标记阻塞，保留可执行部分。
 
 本项目采用 [Apache License 2.0](LICENSE)。独立安装的 skill 包也随附同一份许可证。
 
@@ -48,7 +48,9 @@ claude plugin install smart-test@smart-test --scope project
 /smart-test:smart-test init
 ```
 
-本仓库提供的是第三方 Claude Code 市场，不代表已收录到 Anthropic 官方市场。
+插件也提供可单独选择的模式命令：`/smart-test:help`、`/smart-test:init`、`/smart-test:scan`、`/smart-test:changes`、`/smart-test:check` 和 `/smart-test:pipeline`。原有 `/smart-test:smart-test <模式>` 仍可使用。
+
+本仓库是第三方 Claude Code 市场，未收录到 Anthropic 官方市场。
 
 ## 2. 安装验证
 
@@ -73,22 +75,24 @@ claude plugin details smart-test
 
 确认插件状态为 enabled，组件列表中包含一个名为 `smart-test` 的 skill。
 
-## 3. 第一次接入项目
+## 3. 按任务开始
 
-在目标 Java 仓库根目录启动 Codex 或 Claude Code，然后执行 `init`：
+补当前改动可直接使用 `changes`，执行已有测试可直接使用 `check`，不需要先 init。普通任务说明风险与依据后直接补测试、运行并解释结果；实际执行保留运行证据，长期约定、计划与治理账本按复用、恢复或审计需要保存。已有项目约束仍然适用。
+
+需要搭建测试体系时，在目标 Java 仓库根目录启动 Codex 或 Claude Code，执行 `init`：
 
 ```text
 Codex:   $smart-test init
 Claude:  /smart-test:smart-test init
 ```
 
-Smart-Test 按以下顺序处理：
+smart_test 按以下顺序处理：
 
 1. 识别语言、JDK、Maven/Gradle、模块和 Spring Boot 版本。
 2. 检查数据库、缓存、消息队列、远程客户端、安全配置、迁移脚本和 CI。
 3. 读取现有测试、业务文档、接口协议和 schema，建立可追溯的业务依据。
 4. 形成项目画像、测试策略和缺失基础设施清单。
-5. 对新的关键技术选择或高风险业务规则给出 proposal，等待必要的确认。
+5. 对尚未授权的关键技术选择或未确定业务规则给出具体方案，合并必要的确认；已有授权直接复用。
 6. 在已授权范围内补充测试设施和最小有效测试，并执行验证。
 
 只查看分析结果，不创建状态文件、不修改代码、不执行构建时，使用：
@@ -114,9 +118,9 @@ $smart-test init --dry-run
 | `scan` | 扫描存量代码和测试缺口 | 风险地图、测试债务、治理顺序 |
 | `changes` | 分析当前变更并补充测试 | 影响分析、测试计划、测试代码、验证结果 |
 | `check` | 执行测试并判断结果 | 执行记录、测试报告、失败归因 |
-| `pipeline` | 生成并检查 CI 候选方案 | CI candidate、验证记录、正式 CI 建议补丁 |
+| `pipeline` | 生成并检查 CI 草稿或已验证候选 | CI candidate、分项验证记录、正式 CI 建议补丁 |
 
-正式入口仅为 `help / init / scan / changes / check / pipeline`，不提供命令别名。这些是 skill 的工作模式，不是系统终端命令。自然语言请求由 Agent 映射到相应模式：
+`help / init / scan / changes / check / pipeline` 是六种工作模式，不是系统终端命令。自然语言请求由 Agent 映射到相应模式：
 
 ```text
 查看 smart-test 帮助
@@ -137,7 +141,7 @@ $smart-test help
 $smart-test help coverage
 ```
 
-`help` 只读取随 skill 分发的帮助文档，不扫描目标仓库、不运行构建、不创建 `.smart-test/`。也可以直接描述问题，例如“如何判断增量覆盖率？”或“pipeline 会修改正式 CI 吗？”。
+`help` 只读取随 skill 分发的帮助文档，不扫描目标仓库、不运行构建、不创建 `.smart-test/`。也可以直接描述问题，例如“如何判断增量覆盖率？”。
 
 ### 5.1 扫描存量测试缺口
 
@@ -165,7 +169,7 @@ $smart-test changes --staged
 $smart-test changes --base origin/main
 ```
 
-`--staged` 只分析暂存区；`--base` 从指定分支与当前 HEAD 的共同祖先分析到当前工作树。分析完成后，Smart-Test 会将变更映射到模块、调用方、数据库、接口和业务风险，再形成测试计划。
+`--staged` 只分析暂存区；`--base` 从指定分支与当前 HEAD 的共同祖先分析到当前工作树。smart_test 将变更映射到模块、调用方、数据库、接口和业务风险，再形成测试计划。
 
 只生成计划，不写测试、不执行构建：
 
@@ -183,25 +187,27 @@ $smart-test check --full
 - `--fast`：执行当前变更所需的最小充分验证集。
 - `--full`：扩大到相关模块或完整验证集。
 
-Smart-Test 会在流程内部校验关键产物，校验失败时修复并重验后再继续，无需单独调用校验命令。结构校验通过不等于测试通过。
+smart_test 直接依据实际执行与质量门判断结果。使用持久计划或其他结构化产物时，只校验本次依赖的文件；没有计划或账本时不为 check 补造。结构错误阻断依赖它的工作，结构合法不等于测试通过。
 
-Smart-Test 会记录实际命令、退出码、测试数量、失败、跳过、耗时和报告路径。必需测试未执行、报告陈旧、环境阻塞或存在未解决业务歧义时，不会报告完整验证通过。
+smart_test 记录实际命令、退出码、测试数量、失败、跳过、耗时和报告路径。必需测试未执行、报告陈旧、环境阻塞或存在未解决业务歧义时，不报告完整验证通过。
 
 ### 5.4 生成 CI 候选方案
 
-完成所需本地验证后执行：
+需要接入 CI 时执行；有本地验证记录则复用，没有完整环境也可先生成待验证草稿：
 
 ```text
 $smart-test pipeline
 ```
 
-Smart-Test 先校验相关 artifact 和当前验证状态；结构校验返回 `INVALID` 时，修复并重验通过前不生成候选。确认必需验证通过后，生成 `.smart-test/ci-candidate/`，再检查：
+smart_test 从仓库实际构建和测试约定选择命令，在 `.smart-test/ci-candidate/` 生成候选，并分别记录命令验证、语法检查、provider 实跑状态。候选检查包括：
 
-1. CI 中的命令是否与本地已验证命令一致。
+1. 每条命令的来源、是否执行，以及对应代码版本。
 2. Unit、Integration、Contract 和关键流程是否被正确纳入。
 3. 测试失败是否返回非零退出码。
 4. 测试报告路径、Runner 能力、容器和网络要求是否明确。
 5. Secret 是否通过 CI Secret 或环境变量引用，是否存在硬编码凭证。
+
+必需 Integration 在本地受阻时，可以生成草稿并标 NOT_VERIFIED/NOT_RUN，说明需要在 CI 验证的部分；不能声称完整通过。消费结构化输入时校验实际依赖，不固定要求五类治理文件。既有错误状态先修复，不能删 blocker 来保留 PASS。
 
 以下 `verify` 和 `finalize` 仅表示 `pipeline` 内的阶段，不是独立入口或命令别名。检查候选方案：
 
@@ -209,17 +215,17 @@ Smart-Test 先校验相关 artifact 和当前验证状态；结构校验返回 `
 $smart-test pipeline verify
 ```
 
-验证通过后生成正式 CI 建议补丁：
+完整所需命令在本地或等价 CI 环境验证、候选检查通过后，生成正式 CI 建议补丁：
 
 ```text
 $smart-test pipeline finalize
 ```
 
-`finalize` 默认输出可审阅的 patch，不直接覆盖正式 CI。正式修改需要明确授权。
+`finalize` 默认输出可审阅的 patch，不直接覆盖正式 CI；证据不完整时保持草稿并说明缺口。正式修改需要明确授权。若需先安装草稿以获得首次 CI 执行，必须有针对未验证候选的明确授权，不能将其称为 finalize 已验证成功。
 
 ## 6. 覆盖率策略
 
-覆盖率可以由用户指定，也可以完全不参与本次 Smart-Test 判定。未指定时，Smart-Test 不添加新的覆盖率工具、数字阈值或阻断条件；如果仓库已有 coverage、changed coverage 或关键模块门禁，仍按仓库规则检查。未指定且没有既有门禁时，覆盖率记录为 `NOT_APPLICABLE`，不会影响其他验证。
+覆盖率可以由用户指定，也可以不参与本次 smart_test 判定。未指定时不添加新的覆盖率工具、数字阈值或阻断条件；仓库已有 coverage、changed coverage 或关键模块门禁的，仍按仓库规则检查。未指定且没有既有门禁时，覆盖率记为 `NOT_APPLICABLE`，不影响其他验证。
 
 可在 `init`、`changes` 或 `check` 中直接说明要求：
 
@@ -230,13 +236,13 @@ $smart-test pipeline finalize
 整体行覆盖率至少 75%，并且以 origin/main 为基线的增量行覆盖率至少 80%。
 ```
 
-Smart-Test 将要求记录为 `UNSPECIFIED`、`REPORT_ONLY`、`OVERALL`、`INCREMENTAL` 或 `BOTH`。整体覆盖率按可执行项总数加权汇总；增量覆盖率只计算基线到当前版本之间新增或修改的可执行代码行。没有可执行变更行是 `NOT_APPLICABLE`，无法解析基线、源码映射或报告与当前代码不匹配是 `UNKNOWN`，不会用整体结果替代增量结果。阈值按原始百分比与 `>=` 比较，不先四舍五入。完整规则见 [覆盖率策略](skills/smart-test/references/coverage.md)。
+覆盖率要求记录为 `UNSPECIFIED`、`REPORT_ONLY`、`OVERALL`、`INCREMENTAL` 或 `BOTH`。整体覆盖率按可执行项总数加权汇总；增量覆盖率只计算基线到当前版本之间新增或修改的可执行代码行。没有可执行变更行是 `NOT_APPLICABLE`，无法解析基线、源码映射或报告与当前代码不匹配是 `UNKNOWN`，不用整体结果替代增量结果。阈值按原始百分比与 `>=` 比较，不先四舍五入。完整规则见 [覆盖率策略](skills/smart-test/references/coverage.md)。
 
 `check --fast` 和 `check --full` 只控制执行范围，不改变覆盖率模式；快速验证不能证明整体门禁已通过。覆盖率通过也不能替代关键业务行为、接口契约或数据库语义的测试。
 
 ## 7. 指定约束和业务依据
 
-可以在任意阶段补充约束。建议明确写出范围、强度和生命周期：
+可在任意阶段补充约束，建议明确写出范围、强度和生命周期：
 
 ```text
 只处理 order 模块，本轮不治理历史测试债务。
@@ -246,7 +252,7 @@ Smart-Test 将要求记录为 `UNSPECIFIED`、`REPORT_ONLY`、`OVERALL`、`INCRE
 优先使用项目已有的 AssertJ 风格。
 ```
 
-Smart-Test 会区分：
+约束分为：
 
 - **业务事实**：进入业务依据，用于决定正确结果和断言。
 - **技术约束**：限制测试框架、数据库、容器和构建方式。
@@ -254,7 +260,7 @@ Smart-Test 会区分：
 - **执行约束**：限制是否写代码、是否运行测试、是否修改生产代码。
 - **偏好**：在没有冲突时作为选择依据。
 
-新的约束如果改变已有决策的前提，Smart-Test 会使受影响的策略、计划或 CI candidate 失效，并重新计算相关部分。
+新约束改变技术前提时，只重评受影响的策略、计划或 CI candidate。单纯文件指纹变化先触发复核；确认语义和原授权仍适用后可继续使用，不自动要求重新授权。完整的作用域、生命周期、决策依赖和审计账本仍可按需启用。
 
 常用控制项：
 
@@ -262,25 +268,25 @@ Smart-Test 会区分：
 |---|---|
 | `--dry-run` | 只读分析，不写仓库文件、不执行构建、不启动服务 |
 | `--strict` | 对新的关键策略和计划逐阶段展示 |
-| `--auto` | 复用已确认的策略和授权，自动处理普通变更；遇到新高风险选择时暂停 |
+| `--auto` | 复用既有约定和授权继续执行；新选择超出授权或存在歧义时提出具体待定事项 |
 
 ## 8. 项目产物
 
-Smart-Test 将项目记忆和报告写入目标仓库的 `.smart-test/`：
+smart_test 按需在 `.smart-test/` 保存信息。局部任务无需先创建画像、Oracle、context、strategy、plan 和 status；默认保留实际运行记录。以下格式全部兼容：
 
 | 路径 | 内容 |
 |---|---|
-| `state.json` | 用户约束、决策、授权来源和失效记录 |
+| `state.json` | 可选治理账本：跨会话约束、决策依赖、授权来源与失效记录 |
 | `project-profile.json` | 已核实的项目画像和证据 |
 | `business-oracle.json` | 业务依据、冲突和未知项 |
 | `effective-context.json` | 当前阶段生效的范围和约束 |
 | `test-strategy.json` / `test-policy.json` | 测试层级、技术选择和质量要求 |
 | `test-plan.json` / `test-debt.json` | 测试计划和测试债务 |
-| `status.json` | 各阶段状态和阻塞项 |
+| `status.json` | 按需生成的阶段状态与阻塞摘要，结果来自实际证据 |
 | `runs/` / `reports/` | 执行记录、测试报告和失败分析 |
 | `ci-candidate/` | CI 候选文件和建议补丁 |
 
-文件按流程逐步生成，不会一次创建全部产物。测试代码写入项目现有测试目录。不要把凭证、生产连接信息或真实敏感数据写入 `.smart-test/`。
+新任务优先把长期约定放 test-policy、具体断言依据放计划条目；需要独立复用才拆分。已有文件不删除、不强制迁移。按需规则见 [产物与校验](skills/smart-test/references/artifacts.md)。测试代码写入项目现有测试目录。不要把凭证、生产连接信息或真实敏感数据写入 `.smart-test/`。
 
 ## 9. 更新和卸载
 
@@ -339,16 +345,16 @@ $smart-test check
 需要查看决策来源时，直接描述：
 
 ```text
-查看当前 Smart-Test 状态。
+查看当前 smart_test 状态。
 解释这个测试决策的依据和失效原因。
 列出当前待确认的方案。
 ```
 
 ## 11. 使用问题反馈
 
-发现策略错误、误判、越权或漏测时，可在当前对话中请求导出脱敏反馈，并指定目标项目之外的新目录。Smart-Test 使用内部辅助脚本读取已有产物，只导出固定字段摘要，不修改项目、不执行测试、不访问网络、不上传数据。源码、完整 diff、原始路径、业务文本和凭证不会被复制到反馈包。
+发现策略错误、误判、越权或漏测时，可在当前对话中请求导出脱敏反馈，并指定目标项目之外的新目录。smart_test 使用内部辅助脚本读取已有产物，只导出固定字段摘要，不修改项目、不执行测试、不访问网络、不上传数据。源码、完整 diff、原始路径、业务文本和凭证不会被复制到反馈包。
 
-导出包记录 Smart-Test 版本、可获得的 commit、宿主、工作入口和导出时间。人工复核后，自行带回本仓库，按 [反馈处理流程](feedback/README.md) 创建 case，追踪根因、修复和 regression case。具体参数与省略规则见 [本地导出说明](skills/smart-test/references/feedback.md)。这些操作属于现有工作入口，不增加命令别名。
+导出包记录 smart_test 版本、可获得的 commit、宿主、工作入口和导出时间。人工复核后，自行带回本仓库，按 [反馈处理流程](feedback/README.md) 创建 case，追踪根因、修复和 regression case。具体参数与省略规则见 [本地导出说明](skills/smart-test/references/feedback.md)。这些操作属于现有工作入口，不增加新的工作模式。
 
 ## 12. 许可证与维护者资料
 
