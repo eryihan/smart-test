@@ -327,6 +327,17 @@ class ReportTests(Workspace):
              'started_at': date(self.started), 'finished_at': date(self.finished), 'reports': []}]}
         self.assertEqual(self.result(manifest)['status'], 'NOT_VERIFIED')
 
+    def test_required_test_run_without_report_is_not_verified(self):
+        date = lambda t: datetime.fromtimestamp(t, timezone.utc).isoformat()
+        manifest = {'schema_version': 1, 'required_run_ids': ['unit'], 'blockers': [], 'runs': [
+            {'id': 'unit', 'kind': 'test', 'requires_test_report': True,
+             'argv': ['./mvnw', 'test'], 'exit_code': 0,
+             'started_at': date(self.started), 'finished_at': date(self.finished), 'reports': []}]}
+        result = self.result(manifest)
+        self.assertEqual(result['status'], 'NOT_VERIFIED')
+        self.assertIn('NO_REQUIRED_REPORT_GROUP', {i['type'] for i in result['issues']})
+        self.assertIn('ZERO_TESTS', {i['type'] for i in result['issues']})
+
     def test_missing_zero_and_stale_reports_never_pass(self):
         os.utime(self.report, (self.started - 100, self.started - 100))
         self.assertEqual(self.result()['status'], 'NOT_VERIFIED')
