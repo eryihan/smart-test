@@ -20,9 +20,10 @@
 
 ```text
 python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifest.json>
+python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require test-plan.json --require status.json
 ```
 
-退出码 0：`EVIDENCE_PASS`，只表示声明的执行证据通过；1：`NOT_VERIFIED`，报告缺失、陈旧、失败、skip、零测试或 blockers；2：输入错误。脚本不执行测试、不验证人填写的 manifest 是否真实，也不理解计划风险是否足够，由 Agent 核实。
+退出码 0：`EVIDENCE_PASS` 或 `VALID`，只表示声明的执行/结构证据通过；1：`NOT_VERIFIED` 或 `INVALID`，报告缺失、陈旧、失败、skip、零测试、结构不完整或 blockers；2：输入错误。脚本不执行测试、不验证人填写的 manifest 是否真实，也不理解计划风险是否足够，由 Agent 核实。
 
 报告只接收 JUnit XML（Surefire/Failsafe/Gradle 等常用格式）。Contract/PIT/coverage 的专用报告由 Agent 单独读取并关联命令；不可伪装成 JUnit 结果。没有 JUnit XML 的仓库可用框架原生报告，但明确证据来源，不能编 XML 让脚本通过。
 
@@ -31,6 +32,8 @@ python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifes
 ## 项目质量门
 
 覆盖率按 [coverage.md](coverage.md) 解析。未指定的新门禁不新增阈值，但仓库已有门禁仍然适用；`REPORT_ONLY` 只展示结果，不把报告转换为阻断条件。
+
+在将阶段标为 PASS 前，对已经生成的 `business-oracle.json`、`test-plan.json`、`effective-context.json` 和 `status.json` 运行 `validate_artifacts.py`。它只检查最小可追溯字段，不替代 Agent 对业务含义和风险覆盖的复核。
 
 只有以下全满足才将 verification 标 PASS：
 

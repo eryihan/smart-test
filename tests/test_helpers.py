@@ -17,6 +17,7 @@ sys.path.insert(0, str(SCRIPTS))
 from inspect_repo import inspect
 from state import apply, initial, active_directives
 from collect_reports import collect
+from validate_artifacts import validate
 
 spec = importlib.util.spec_from_file_location('installer', ROOT / 'tools' / 'install_skill.py')
 installer = importlib.util.module_from_spec(spec)
@@ -442,6 +443,34 @@ class InstallTests(Workspace):
         after = sorted(str(p.relative_to(self.root)) for p in self.root.rglob('*'))
         self.assertEqual(before, after)
 
+
+class ArtifactTests(Workspace):
+    def put_json(self, name, value):
+        return self.put('.smart-test/' + name, json.dumps(value))
+
+    def test_validates_traceability_fields(self):
+        self.put_json('business-oracle.json', {'entries': [
+            {'business_truth': True, 'source': 'docs/approval.md', 'claim': 'Rejected state is REJECTED'}]})
+        self.put_json('test-plan.json', {'items': [{
+            'id': 'ST-1', 'target': 'OrderService#reject', 'risk': 'HIGH', 'suite': 'unit',
+            'required': True, 'assertions': ['state is REJECTED'],
+            'oracle': {'business_truth': True, 'source': 'docs/approval.md', 'claim': 'Rejected state'}}]})
+        self.put_json('status.json', {'status': 'READY', 'blocking_ids': []})
+        result = validate(self.root, required=['business-oracle.json', 'test-plan.json', 'status.json'])
+        self.assertEqual(result['status'], 'VALID')
+
+    def test_rejects_untraceable_oracle_and_pass_with_blockers(self):
+        self.put_json('business-oracle.json', {'entries': [{'business_truth': True}]})
+        self.put_json('status.json', {'status': 'PASS', 'blocking_ids': ['DB-1']})
+        result = validate(self.root, required=['business-oracle.json', 'status.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        self.assertIn('BUSINESS_TRUTH_SOURCE_MISSING', {i['type'] for i in result['issues']})
+        self.assertIn('PASS_WITH_BLOCKERS', {i['type'] for i in result['issues']})
+
+    def test_missing_required_artifact_is_invalid(self):
+        result = validate(self.root, required=['test-plan.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        self.assertEqual(result['issues'][0]['type'], 'MISSING_REQUIRED_ARTIFACT')
 
 if __name__ == '__main__':
     unittest.main()

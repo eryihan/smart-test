@@ -66,11 +66,13 @@ python3 <skill-dir>/scripts/inspect_repo.py --repo <repo> --base origin/main
 python3 <skill-dir>/scripts/state.py --repo <repo> init
 python3 <skill-dir>/scripts/state.py --repo <repo> status
 python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <run.json>
+python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require test-plan.json --require status.json
 ```
 
 - `inspect_repo.py`：只读静态证据、模块依赖提示、Git 改动和文件指纹；不执行构建文件或连接外部服务。输出不是完整画像或完整调用图，必须人工语义复核。
 - `state.py`：保存 directives/proposals/approvals，显式依赖失效与证据文件指纹校验，原子更新 JSON。状态不能自动证明用户说过某句话；Agent 负责真实来源。
 - `collect_reports.py`：验证一次实际执行的 JUnit XML 与声明的必需测试集；不运行测试、不改写报告。报告摘要只是项目质量门的一部分。
+- `validate_artifacts.py`：只读检查 Oracle、test-plan、effective-context 和 status 的最小可追溯字段；不替代 Agent 的业务判断。
 - [状态与计划模板](assets/context-and-plan.example.json) 是结构示例；按实际证据填充，不能直接当 READY 状态使用。
 
 ## 结束本次工作
