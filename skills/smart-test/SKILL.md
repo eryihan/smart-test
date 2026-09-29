@@ -46,6 +46,8 @@ license: Apache-2.0
 
 实现 Java 测试或基础设施时，读取 [Java 测试决策](references/java-testing.md)。不要未经检查就复制版本、数据库引擎或工具配置。
 
+用户要求记录使用异常或导出反馈时，读取 [本地反馈导出](references/feedback.md)，在当前入口内使用 `export_feedback.py` 生成脱敏摘要。仅写用户指定的项目外新目录，不自动导出或上传；反馈的期望来自已确认规则与用户要求，不因 Agent 行为错误而降低回归期望。
+
 只读发现、更新策略、只生成计划、实施有效计划、解释证据和处理授权等自然语言请求，按其语义映射到上述入口及对应流程，不将内部步骤名或辅助脚本的子命令作为额外用户入口。
 
 `--strict`：对新的 profile/context/strategy/plan 按阶段给可审阅结论，已有明确授权仍有效。`--auto`：仅复用已确认的 profile/strategy/policy 执行普通变更；遇新重大基础设施、业务歧义、REQUIRED 冲突、生产修复或正式 CI 修改时检查已有授权，缺失则停在具体方案处。`--fast` 不免除必需风险验证；`--full` 扩大到相关模块/完整验证集。
@@ -73,6 +75,7 @@ python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require test-p
 - `state.py`：保存 directives/proposals/approvals，显式依赖失效与证据文件指纹校验，原子更新 JSON。状态不能自动证明用户说过某句话；Agent 负责真实来源。
 - `collect_reports.py`：验证一次实际执行的 JUnit XML 与声明的必需测试集；不运行测试、不改写报告。报告摘要只是项目质量门的一部分。
 - `validate_artifacts.py`：内部必需校验，检查 Oracle、test-plan、test-policy、effective-context 和 status 的最小结构与可追溯字段。`init/scan/changes/check/pipeline` 按各自流程在关键产物写入后、进入下一阶段前运行；失败时修复并重验，通过后才能继续。`help` 和 `--dry-run` 不为校验创建文件。它不替代业务判断，也不是新的用户入口。
+- `export_feedback.py`：按固定字段白名单导出本地反馈摘要；不复制原始 artifacts、源码、自由文本或完整 diff，不执行项目命令，不上传数据。版本来自随包 `version.json`。
 - [状态与计划模板](assets/context-and-plan.example.json) 是结构示例；按实际证据填充，不能直接当 READY 状态使用。
 
 ## 结束本次工作
