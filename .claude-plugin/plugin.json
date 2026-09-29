@@ -2,6 +2,7 @@
   "name": "smart-test",
   "version": "0.1.1",
   "description": "搭建测试、扫描测试缺口、检查当前改动，并生成已验证的 CI 候选方案。",
+  "license": "Apache-2.0",
   "author": {
     "name": "eryihan"
   },

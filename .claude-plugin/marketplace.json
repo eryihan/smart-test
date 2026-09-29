@@ -11,6 +11,7 @@
       "name": "smart-test",
       "source": "./",
       "description": "分析 Java / Spring Boot 仓库风险，补充测试并验证 CI 方案。",
+      "license": "Apache-2.0",
       "category": "testing"
     }
   ]

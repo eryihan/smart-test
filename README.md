@@ -4,6 +4,8 @@ Smart-Test 是一个面向 Java / Spring Boot 仓库的测试工程 skill。它�
 
 当前版本主要支持 Java 8+、Spring Boot 2/3、Maven 和 Gradle。数据库、Redis、消息队列和远程服务测试需要相应的隔离环境；环境不可用时，Smart-Test 会标记阻塞并保留可执行的部分。
 
+本项目采用 [Apache License 2.0](LICENSE)。独立安装的 skill 包也随附同一份许可证。
+
 ## 1. 安装
 
 普通用户不需要克隆仓库，也不需要运行 Python 安装脚本。
@@ -310,8 +312,8 @@ $smart-test explain
 $smart-test approval list
 ```
 
-## 10. 维护者资料
+## 10. 许可证与维护者资料
 
-开发架构、验收记录和本地发布说明属于维护者资料，保留在源码工作区的 `docs/` 目录，不作为用户安装内容。
+本项目采用 [Apache License 2.0](LICENSE)。开发架构、验收记录和本地发布说明属于维护者资料，保留在源码工作区的 `docs/` 目录，不作为用户安装内容。
 
 安装机制参考 [Claude Code 插件安装](https://code.claude.com/docs/en/plugins/install)、[Claude Code 插件市场](https://code.claude.com/docs/en/plugin-marketplaces) 和 [OpenAI 官方 skill-installer](https://github.com/openai/skills/tree/main/skills/.system/skill-installer)。

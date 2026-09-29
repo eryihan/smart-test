@@ -1,6 +1,7 @@
 ---
 name: smart-test
 description: "面向 Java / Spring Boot 仓库的测试工程：初始化测试体系、扫描测试缺口、检查当前改动、执行验证与生成 CI 候选方案。用户要求补后端测试、分析测试缺口、搭建测试基础设施，或使用 smart-test init/scan/changes/check/pipeline 时使用。"
+license: Apache-2.0
 ---
 
 # Smart-Test
