@@ -60,7 +60,7 @@ Codex：`$smart-test <模式>`；Claude 插件：`/smart-test:help|init|scan|cha
 
 Python 3.9+，仅标准库。按需查看 `--help`；脚本退出成功不等于项目验证通过。
 
-- `inspect_repo.py --repo <repo> [--base <ref> | --staged]`：只读静态证据、模块提示、Git 变更和文件指纹；局部任务直接读取相关文件，无需全仓扫描；不提供完整调用图或运行环境结论。
+- `inspect_repo.py --repo <repo> [--base <ref> | --staged]`：只读静态证据、模块提示、Git 变更和文件指纹；局部任务可直接读取相关文件，无需全仓扫描；不提供完整调用图或运行环境结论。
 - `collect_reports.py --repo <repo> --manifest <run.json>`：检查实际 JUnit XML、运行窗口与声明的必需测试集，不运行测试或改报告。
 - `validate_artifacts.py --repo <repo> --require <file>`：仅校验本次消费/生成的结构化产物及其显式引用，使用规则见 artifacts；不因未使用的可选文件缺失阻断任务。
 - `state.py --repo <repo> ...`：可选账本，保存指令、方案、授权来源、依赖与失效；不能证明对话真实性。证据变化后的复核见 governance。
