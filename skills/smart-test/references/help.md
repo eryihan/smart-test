@@ -60,6 +60,8 @@ Claude Code：
 
 Smart-Test 会区分 `PASS`、`PARTIAL`、`BLOCKED`、`NOT_VERIFIED`、`UNKNOWN` 和 `NOT_APPLICABLE`，不会把测试未执行、报告陈旧、环境不可用或业务依据不明确报告为完整通过。
 
+关键产物的结构校验由 Smart-Test 在流程内部执行，不需要用户单独调用。校验失败时先修复并重验，再进入下一阶段；结构合法不代表测试通过。
+
 项目状态和报告写入目标仓库的 `.smart-test/`，常见文件包括：
 
 - `project-profile.json`：已核实的技术栈和项目结构；

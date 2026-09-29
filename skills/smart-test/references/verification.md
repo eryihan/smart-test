@@ -33,7 +33,7 @@ python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require test-p
 
 覆盖率按 [coverage.md](coverage.md) 解析。未指定的新门禁不新增阈值，但仓库已有门禁仍然适用；`REPORT_ONLY` 只展示结果，不把报告转换为阻断条件。
 
-在将阶段标为 PASS 前，对已经生成的 `business-oracle.json`、`test-plan.json`、`effective-context.json` 和 `status.json` 运行 `validate_artifacts.py`。它只检查最小可追溯字段，不替代 Agent 对业务含义和风险覆盖的复核。
+`check` 更新 `status.json` 后，在对外报告 PASS、BLOCKED 或其他最终状态前，必须运行 `python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require status.json`，对本次验证依赖的 `business-oracle.json`、`test-plan.json`、`effective-context.json`、`test-policy.json` 追加对应 `--require`，不能因依赖文件缺失就省略检查。失败时修复 artifact 并重验，通过前不得进入下一阶段或将未校验状态作为最终结论；仍可向用户说明结构错误和当前阻塞。`VALID` 只表示结构合法，合法的 BLOCKED 不会因此变成 PASS。脚本不替代业务含义和风险覆盖的复核。
 
 只有以下全满足才将 verification 标 PASS：
 
