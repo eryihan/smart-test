@@ -119,4 +119,4 @@ python3 <skill-dir>/scripts/state.py --repo <repo> context --module order --path
 
 `status.json` 为每阶段保存 status、artifact、blocking_ids、decision_ids、updated_at。可用：NOT_STARTED / PROPOSED / READY / PARTIAL / BLOCKED / FAILED / PASS / STALE。READY 只表示该阶段输入齐备，不能代替验证 PASS。
 
-`explain` 追踪：风险 → Oracle → directives → 选择层级的原因 → 决策版本及授权 → 测试/命令 → 结果与未覆盖项。`approval list` 读取 PROPOSED/REVISED；无须虚构单独 CLI。最终允许多阶段并行处于不同状态，不用一个 READY 掩盖 integration 阻塞。
+用户要求解释时追踪：风险 → Oracle → directives → 选择层级的原因 → 决策版本及授权 → 测试/命令 → 结果与未覆盖项。用户要求查看待确认方案时读取 PROPOSED/REVISED，不新增入口。最终允许多阶段并行处于不同状态，不用一个 READY 掩盖 integration 阻塞。

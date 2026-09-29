@@ -116,7 +116,7 @@ $smart-test init --dry-run
 | `check` | 执行测试并判断结果 | 执行记录、测试报告、失败归因 |
 | `pipeline` | 生成并检查 CI 候选方案 | CI candidate、验证记录、正式 CI 建议补丁 |
 
-这些是 skill 的工作模式，由 Agent 根据请求执行，不是需要在系统终端安装的命令行程序。也可以直接描述任务，Agent 会选择对应模式：
+正式入口仅为 `help / init / scan / changes / check / pipeline`，不提供命令别名。这些是 skill 的工作模式，不是系统终端命令。自然语言请求由 Agent 映射到相应模式：
 
 ```text
 查看 smart-test 帮助
@@ -203,7 +203,7 @@ Smart-Test 先生成 `.smart-test/ci-candidate/`，再检查：
 4. 测试报告路径、Runner 能力、容器和网络要求是否明确。
 5. Secret 是否通过 CI Secret 或环境变量引用，是否存在硬编码凭证。
 
-检查候选方案：
+以下 `verify` 和 `finalize` 仅表示 `pipeline` 内的阶段，不是独立入口或命令别名。检查候选方案：
 
 ```text
 $smart-test pipeline verify

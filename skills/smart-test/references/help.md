@@ -31,6 +31,8 @@ Claude Code：
 | `check` | 执行测试、收集报告、判断验证结果 | 只执行已有构建配置能证明的测试 |
 | `pipeline` | 从已验证命令生成、检查 CI 候选 | 默认输出候选和 patch，不直接改正式 CI |
 
+正式入口仅为表中的六项，不提供命令别名。自然语言请求由 Agent 映射到相应入口；`pipeline verify` 和 `pipeline finalize` 是 pipeline 内的阶段。
+
 推荐顺序是：首次接入使用 `init`，了解缺口使用 `scan`，提交前使用 `changes` 和 `check`，需要接入 CI 时使用 `pipeline`。只想了解规则或参数时使用 `help`。
 
 ## 常用控制项

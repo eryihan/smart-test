@@ -8,7 +8,7 @@ license: Apache-2.0
 
 先理解仓库和业务依据，再选择能验证风险的最低充分测试层级。V1 面向 Java 8+、Spring Boot 2/3、Maven/Gradle；其他版本先核查兼容性，其他语言仅分析并说明范围，不套用 Java 配置。
 
-这是 Agent Skill，不是已安装的 `smart-test` 可执行程序。优先使用下面的六个用户入口或直接描述任务。Codex 使用 `$smart-test scan`，Claude 插件使用 `/smart-test:smart-test scan`，独立 skill 使用 `/smart-test scan`。脚本路径相对于本 SKILL.md 所在目录；运行时替换成实际绝对路径，目标仓库通过 `--repo` 指定，不依赖当前目录，也不要假设插件位于个人 skills 目录。
+这是 Agent Skill，不是已安装的 `smart-test` 可执行程序。正式入口仅为 `help / init / scan / changes / check / pipeline`，不提供命令别名；自然语言请求自动映射到相应入口。Codex 使用 `$smart-test scan`，Claude 插件使用 `/smart-test:smart-test scan`，独立 skill 使用 `/smart-test scan`。脚本路径相对于本 SKILL.md 所在目录；运行时替换成实际绝对路径，目标仓库通过 `--repo` 指定，不依赖当前目录，也不要假设插件位于个人 skills 目录。
 
 ## 不可省略的判断
 
@@ -46,7 +46,7 @@ license: Apache-2.0
 
 实现 Java 测试或基础设施时，读取 [Java 测试决策](references/java-testing.md)。不要未经检查就复制版本、数据库引擎或工具配置。
 
-高级请求按原语义处理：doctor/profile 只读发现；strategy 更新策略；plan 只生成计划；implement 执行有效计划；explain 展示证据和决策链；directive/approval/status 使用治理流程。不要暗示这些词在 shell 中可直接执行。`init/scan/changes/check/pipeline` 是 Agent 工作模式，不是 shell 子命令。
+只读发现、更新策略、只生成计划、实施有效计划、解释证据和处理授权等自然语言请求，按其语义映射到上述入口及对应流程，不将内部步骤名或辅助脚本的子命令作为额外用户入口。
 
 `--strict`：对新的 profile/context/strategy/plan 按阶段给可审阅结论，已有明确授权仍有效。`--auto`：仅复用已确认的 profile/strategy/policy 执行普通变更；遇新重大基础设施、业务歧义、REQUIRED 冲突、生产修复或正式 CI 修改时检查已有授权，缺失则停在具体方案处。`--fast` 不免除必需风险验证；`--full` 扩大到相关模块/完整验证集。
 
