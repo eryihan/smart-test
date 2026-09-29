@@ -101,7 +101,7 @@ $smart-test init --dry-run
 
 ```text
 允许修改测试代码、测试资源和测试相关构建配置；禁止修改生产代码。
-数据库测试禁止使用 Docker；没有隔离测试实例时报告阻塞原因。
+数据库测试需要可用的同引擎隔离实例；环境信息不完整时先报告阻塞原因，不自动替换成其他数据库。
 本次只处理 order 模块。
 ```
 
@@ -198,7 +198,7 @@ Smart-Test 先生成 `.smart-test/ci-candidate/`，再检查：
 1. CI 中的命令是否与本地已验证命令一致。
 2. Unit、Integration、Contract 和关键流程是否被正确纳入。
 3. 测试失败是否返回非零退出码。
-4. 测试报告路径、Runner 能力、Docker/网络要求是否明确。
+4. 测试报告路径、Runner 能力、容器和网络要求是否明确。
 5. Secret 是否通过 CI Secret 或环境变量引用，是否存在硬编码凭证。
 
 检查候选方案：
@@ -316,9 +316,9 @@ Codex：确认 `skill-installer` 报告安装成功，开启新会话后调用 `
 
 Claude Code：执行 `claude plugin list`，确认 `smart-test@smart-test` 为 enabled；必要时运行 `/reload-plugins`，然后使用 `/smart-test:smart-test`。
 
-### 没有 Docker
+### 集成测试环境暂时不可用
 
-可以继续执行 Unit 和不依赖容器的测试。需要真实数据库或中间件时，提供经过确认的隔离测试实例；没有可用环境时会报告阻塞，不会使用 mock 或跳过测试代替通过。
+可以继续执行不依赖外部服务的 Unit 和其他已具备环境的测试。需要真实数据库或中间件时，提供经过确认的隔离测试实例；环境不可用会报告阻塞，不会用 mock 或跳过测试代替通过。
 
 ### 是否会修改生产代码或正式 CI
 
@@ -334,12 +334,12 @@ Claude Code：执行 `claude plugin list`，确认 `smart-test@smart-test` 为 e
 $smart-test check
 ```
 
-查看决策来源：
+需要查看决策来源时，直接描述：
 
 ```text
-$smart-test status
-$smart-test explain
-$smart-test approval list
+查看当前 Smart-Test 状态。
+解释这个测试决策的依据和失效原因。
+列出当前待确认的方案。
 ```
 
 ## 11. 许可证与维护者资料
