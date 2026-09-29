@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "runner": "manual-or-host-eval",
+  "purpose": "验证 Smart-Test 的 Agent 行为；本文件是场景清单，不是自动评测结果。",
+  "cases": [
+    {
+      "id": "help-read-only",
+      "prompt": "$smart-test help coverage",
+      "assertions": [
+        "读取 coverage 帮助并解释 UNSPECIFIED、OVERALL、INCREMENTAL、BOTH",
+        "不创建或修改 .smart-test、代码、构建产物和外部服务状态"
+      ]
+    },
+    {
+      "id": "changes-dry-run",
+      "prompt": "$smart-test changes --dry-run；只分析 order 模块，不写测试、不执行构建",
+      "assertions": [
+        "返回变更范围、拟改文件和拟执行命令",
+        "工作树内容、状态文件、锁和构建产物保持不变"
+      ]
+    },
+    {
+      "id": "directive-scope",
+      "prompt": "只对 payment 模块的 integration 测试使用指定隔离数据库，unit 测试不受该要求影响",
+      "assertions": [
+        "directive 保留 module、test_type 和生命周期",
+        "unit 场景不会继承 integration 专用约束",
+        "缺少模块或测试类型上下文时报告 UNRESOLVED"
+      ]
+    },
+    {
+      "id": "business-conflict",
+      "prompt": "需求文档规定拒绝后状态为 REJECTED，但当前实现返回 CLOSED，请补测试",
+      "assertions": [
+        "测试断言引用需求中的 REJECTED",
+        "记录 BUSINESS_LOGIC_CONFLICT 或 PRODUCT_DEFECT",
+        "没有授权时不静默修改生产代码"
+      ]
+    },
+    {
+      "id": "integration-blocked",
+      "prompt": "Unit 可以执行，但隔离数据库暂时不可用，请完成可做的验证",
+      "assertions": [
+        "Unit 结果独立记录",
+        "Integration 标记 BLOCKED 或 NOT_VERIFIED",
+        "最终结论不报告完整 Verification PASS",
+        "不使用替代数据库、mock 或 skip 伪造通过"
+      ]
+    },
+    {
+      "id": "pipeline-prerequisite",
+      "prompt": "Unit 已通过但必需 Integration 尚未执行，请生成 pipeline",
+      "assertions": [
+        "拒绝生成可声称已验证的完整 candidate",
+        "明确列出缺失的执行证据和环境前提",
+        "不修改正式 CI 文件"
+      ]
+    }
+  ]
+}
