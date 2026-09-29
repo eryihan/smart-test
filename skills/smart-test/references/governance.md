@@ -44,7 +44,7 @@ V1 使用 UTF-8 JSON，避免在 Codex/Claude Code 所在环境额外安装 YAML
 }
 ```
 
-分类：business / technical / scope / execution / preference。强度：REQUIRED / PREFERRED / ADVISORY。scope 可含 module、path、test_type、phase，值为数组；空对象代表整个适用生命周期，不代表自动授权全部修改。
+分类：business / technical / scope / execution / preference。强度：REQUIRED / PREFERRED / ADVISORY。scope 仅支持 module、path、test_type、phase，已提供字段的值必须为非空字符串数组；空对象代表整个适用生命周期，不代表自动授权全部修改。
 
 生命周期与绑定：
 
@@ -56,7 +56,7 @@ V1 使用 UTF-8 JSON，避免在 Codex/Claude Code 所在环境额外安装 YAML
 | PHASE | `{"phase":"verify"}` | 指定阶段 |
 | ONE_TIME | `{"session":"实际会话标识"}` | 使用后显式 consume，失败未执行时不消费 |
 
-SESSION/CHANGE/ONE_TIME 必须绑定稳定的实际标识；跨会话不能自动沿用。`state.py context` 按 binding 筛选候选，Agent 还需判断 scope 的交集，生成真正的 Effective Context。不能直接把所有 ACTIVE 指令应用于全部模块。
+SESSION/CHANGE/ONE_TIME 必须绑定稳定的实际标识；跨会话不能自动沿用。`state.py context` 先检查 ACTIVE 状态和 lifecycle binding；binding 使用精确相等匹配，不使用 glob。不满足的指令进入 `inactive_ids`。对剩余候选按下述 scope 规则筛选，再由 Agent 结合业务语义形成 Effective Context。不能直接把所有 ACTIVE 指令应用于全部模块。
 
 用户业务陈述同时进入 Oracle；技术偏好不进入 Oracle。指令与已验证事实冲突时保留两边证据，标记 `DIRECTIVE_FACT_CONFLICT`，确认是否有环境差异；不能把 PostgreSQL 驱动的证据改成 MySQL。
 
@@ -89,7 +89,15 @@ python3 <skill-dir>/scripts/state.py --repo <repo> context --session <session-id
 python3 <skill-dir>/scripts/state.py --repo <repo> context --module order --path src/main/java/order --test-type integration --phase verify
 ```
 
-`context` 提供 module/path/test_type/phase 时，脚本对 directive scope 做确定性匹配：同一字段内为 OR，不同字段之间为 AND；path 使用仓库相对路径和 glob。缺少 scope 所需上下文时返回 `unresolved_directives`，不默认套用。自然语言到模块、路径和测试类型的映射，以及多个 directive 的语义冲突，仍由 Agent 判断。
+`context` 只要提供 module、path、test_type、phase 中任一上下文，就对候选指令的明确 scope 字段做确定性匹配：
+
+- 四个字段均使用区分大小写的 `fnmatchcase` glob 匹配；同一字段内，任一上下文值匹配任一 pattern 即满足，不同字段之间为 AND。
+- path 由 Agent 提供仓库相对路径；脚本匹配字符串，不遍历文件或解析路径，`*` 也可匹配 `/`，不应按文件系统 glob 的目录层级理解。
+- 所有 scope 字段均满足时归为 active，返回完整记录于 `active_directives`；任一已提供字段明确不匹配时归为 excluded，返回 `excluded_directives` 的 id 和不匹配字段。
+- 没有明确不匹配、但缺少必要上下文时归为 unresolved，返回 `unresolved_directives` 的 id 和缺失字段，不默认套用。明确不匹配优先于上下文缺失。
+- 四类 scope 上下文均未提供时，只进行 lifecycle/binding 筛选；此时 `active_directives` 是候选清单，不能视为 scope 已验证。实施前补充本次模块、路径、测试类型和阶段中适用的上下文。`--module`、`--path`、`--test-type` 可重复传入，`--phase` 是单值。
+
+这些分组是查询结果，不改变 directive 的存储状态或生命周期。脚本负责明确字段的匹配；业务语义到模块、路径、测试类型和阶段的映射、多个 directive 的语义冲突与最终 Effective Context，仍由 Agent 判断。
 
 `--source human-directive` 用于用户已经明确指定的选择；`--source policy` 仅用于已生效 policy 覆盖的普通决策。不得编造来源或自称“用户已确认”。脚本不能验证对话真实性，来源核验由宿主 Agent 承担。
 
