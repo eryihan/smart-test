@@ -50,7 +50,7 @@ claude plugin install smart-test@smart-test --scope project
 
 插件也提供可单独选择的模式命令：`/smart-test:help`、`/smart-test:init`、`/smart-test:scan`、`/smart-test:changes`、`/smart-test:check` 和 `/smart-test:pipeline`。原有 `/smart-test:smart-test <模式>` 仍可使用。
 
-本仓库是第三方 Claude Code 市场，未收录到 Anthropic 官方市场。
+本仓库提供第三方 Claude Code 插件市场。
 
 ## 2. 安装验证
 
@@ -252,7 +252,7 @@ $smart-test pipeline finalize
 优先使用项目已有的 AssertJ 风格。
 ```
 
-约束分为：
+输入分为以下几类：
 
 - **业务事实**：进入业务依据，用于决定正确结果和断言。
 - **技术约束**：限制测试框架、数据库、容器和构建方式。
