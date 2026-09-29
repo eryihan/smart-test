@@ -467,6 +467,134 @@ class ArtifactTests(Workspace):
         self.assertIn('BUSINESS_TRUTH_SOURCE_MISSING', {i['type'] for i in result['issues']})
         self.assertIn('PASS_WITH_BLOCKERS', {i['type'] for i in result['issues']})
 
+    def test_rejects_business_truth_without_claim(self):
+        self.put_json('business-oracle.json', {'entries': [
+            {'business_truth': True, 'source': 'docs/approval.md'}]})
+        result = validate(self.root, required=['business-oracle.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        self.assertIn('BUSINESS_TRUTH_CLAIM_MISSING', {i['type'] for i in result['issues']})
+
+    def test_rejects_incomplete_required_test_plan_item(self):
+        self.put_json('test-plan.json', {'items': [{'required': True, 'id': 'ST-1'}]})
+        result = validate(self.root, required=['test-plan.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        kinds = {i['type'] for i in result['issues']}
+        self.assertIn('REQUIRED_ITEM_TARGET_MISSING', kinds)
+        self.assertIn('REQUIRED_ITEM_ORACLE_MISSING', kinds)
+
+    def test_accepts_minimum_test_policy(self):
+        self.put_json('test-policy.json', {
+            'required_suites': ['unit'],
+            'verification': {'required': True},
+            'environment': {'database': 'isolated'},
+            'coverage': {
+                'mode': 'UNSPECIFIED', 'metric': 'LINE', 'threshold': None,
+                'scope': {'type': 'REPOSITORY'}, 'baseline': None,
+            },
+            'production_code_modify': False,
+        })
+        result = validate(self.root, required=['test-policy.json'])
+        self.assertEqual(result['status'], 'VALID')
+
+    def test_rejects_malformed_test_policy(self):
+        self.put_json('test-policy.json', {
+            'required_suites': 'unit',
+            'coverage': {'mode': 'FULL', 'threshold': 101},
+            'production_code_modify': 'no',
+        })
+        result = validate(self.root, required=['test-policy.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        kinds = {i['type'] for i in result['issues']}
+        self.assertIn('REQUIRED_SUITES_INVALID', kinds)
+        self.assertIn('COVERAGE_MODE_INVALID', kinds)
+        self.assertIn('COVERAGE_THRESHOLD_INVALID', kinds)
+        self.assertIn('PRODUCTION_CODE_MODIFY_INVALID', kinds)
+
+    def test_blocked_status_with_blockers_is_valid(self):
+        self.put_json('status.json', {'status': 'BLOCKED', 'blocking_ids': ['DB-1']})
+        result = validate(self.root, required=['status.json'])
+        self.assertEqual(result['status'], 'VALID')
+
+    def test_pass_status_without_blockers_is_valid(self):
+        self.put_json('status.json', {'status': 'PASS', 'blocking_ids': []})
+        self.assertEqual(validate(self.root, ['status.json'])['status'], 'VALID')
+
+    def test_pass_cannot_hide_blockers_behind_empty_blocking_ids(self):
+        self.put_json('status.json', {'status': 'PASS', 'blocking_ids': [], 'blockers': ['DB-1']})
+        self.assertEqual(validate(self.root, ['status.json'])['status'], 'INVALID')
+
+    def test_each_required_plan_field_is_checked(self):
+        item = {'id': 'ST-1', 'target': 'Payment#pay', 'risk': 'HIGH', 'suite': 'unit',
+                'required': True, 'assertions': ['confirmed amount'],
+                'oracle': {'business_truth': True, 'source': 'contract.md', 'claim': 'confirmed amount'}}
+        for key in ('id', 'target', 'risk', 'suite', 'assertions', 'oracle'):
+            with self.subTest(key=key):
+                incomplete = copy.deepcopy(item)
+                del incomplete[key]
+                self.put_json('test-plan.json', {'items': [incomplete]})
+                result = validate(self.root, ['test-plan.json'])
+                self.assertEqual(result['status'], 'INVALID')
+                self.assertIn('REQUIRED_ITEM_' + key.upper() + '_MISSING',
+                              {i['type'] for i in result['issues']})
+
+    def test_policy_rejects_invalid_shapes_and_field_types(self):
+        invalid = [[], None, {}, {'hello': 'world'},
+                   {'required_suites': [1]}, {'required_suites': [' ']},
+                   {'verification': []}, {'environment': 'isolated'},
+                   {'production_change_boundary': False}, {'coverage': []}]
+        for field, values in {
+            'mode': ['FULL', [], None], 'metric': ['COUNT', {}, None],
+            'threshold': [-1, 101, True, '80', float('nan'), float('inf')],
+            'scope': [[], 'repository'], 'baseline': [1, [], ' '],
+        }.items():
+            invalid.extend({'coverage': {field: value}} for value in values)
+        for policy in invalid:
+            with self.subTest(policy=policy):
+                self.put_json('test-policy.json', policy)
+                self.assertEqual(validate(self.root, ['test-policy.json'])['status'], 'INVALID')
+
+    def test_policy_allows_optional_fields_and_coverage_boundaries(self):
+        valid = [{'required_suites': ['unit', {'suite': 'integration'}]},
+                 {'production_code_modify': False}, {'production_change_boundary': {}}]
+        valid.extend({'coverage': {'mode': mode, 'metric': metric, 'threshold': threshold}}
+                     for mode in ('UNSPECIFIED', 'REPORT_ONLY', 'OVERALL', 'INCREMENTAL', 'BOTH')
+                     for metric in ('LINE', 'BRANCH', 'INSTRUCTION', 'METHOD', 'CLASS')
+                     for threshold in (None, 0, 80.5, 100))
+        for policy in valid:
+            with self.subTest(policy=policy):
+                self.put_json('test-policy.json', policy)
+                self.assertEqual(validate(self.root, ['test-policy.json'])['status'], 'VALID')
+
+    def test_all_artifacts_require_object_roots(self):
+        for name in ('business-oracle.json', 'test-plan.json', 'effective-context.json',
+                     'test-policy.json', 'status.json'):
+            with self.subTest(name=name):
+                self.put_json(name, [])
+                result = validate(self.root, [name])
+                self.assertEqual(result['issues'][0]['type'], 'ROOT_OBJECT_REQUIRED')
+
+    def test_validator_cli_reports_invalid_without_modifying_artifact(self):
+        path = self.put_json('test-policy.json', {'coverage': {'mode': []}})
+        before = path.read_bytes()
+        result = subprocess.run([sys.executable, str(SCRIPTS / 'validate_artifacts.py'),
+                                 '--repo', str(self.root), '--require', 'test-policy.json'],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(json.loads(result.stdout)['status'], 'INVALID')
+        self.assertEqual(before, path.read_bytes())
+
+    def test_rejects_invalid_json(self):
+        self.put('.smart-test/status.json', '{not-json')
+        result = validate(self.root, required=['status.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        self.assertEqual(result['issues'][0]['type'], 'INVALID_JSON')
+
+    def test_example_artifact_is_not_valid_evidence(self):
+        self.put_json('test-policy.json', {'example_only': True, 'required_suites': ['unit']})
+        result = validate(self.root, required=['test-policy.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        self.assertIn('EXAMPLE_ARTIFACT', {i['type'] for i in result['issues']})
+
     def test_missing_required_artifact_is_invalid(self):
         result = validate(self.root, required=['test-plan.json'])
         self.assertEqual(result['status'], 'INVALID')
