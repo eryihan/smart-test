@@ -307,6 +307,25 @@ class ReportTests(Workspace):
         self.assertEqual(result['status'], 'EVIDENCE_PASS')
         self.assertEqual(result['counts']['tests'], 1)
 
+    def test_compile_only_run_does_not_require_test_report(self):
+        date = lambda t: datetime.fromtimestamp(t, timezone.utc).isoformat()
+        manifest = {'schema_version': 1, 'required_run_ids': ['compile'], 'blockers': [], 'runs': [
+            {'id': 'compile', 'kind': 'compile', 'requires_test_report': False,
+             'argv': ['./mvnw', '-DskipTests', 'compile'], 'exit_code': 0,
+             'started_at': date(self.started), 'finished_at': date(self.finished), 'reports': []}]}
+        result = self.result(manifest)
+        self.assertEqual(result['status'], 'EVIDENCE_PASS')
+        self.assertEqual(result['counts']['tests'], 0)
+        self.assertEqual(result['runs'][0]['kind'], 'compile')
+
+    def test_compile_failure_still_blocks_without_test_report(self):
+        date = lambda t: datetime.fromtimestamp(t, timezone.utc).isoformat()
+        manifest = {'schema_version': 1, 'required_run_ids': ['compile'], 'blockers': [], 'runs': [
+            {'id': 'compile', 'kind': 'compile', 'requires_test_report': False,
+             'argv': ['./mvnw', '-DskipTests', 'compile'], 'exit_code': 1,
+             'started_at': date(self.started), 'finished_at': date(self.finished), 'reports': []}]}
+        self.assertEqual(self.result(manifest)['status'], 'NOT_VERIFIED')
+
     def test_missing_zero_and_stale_reports_never_pass(self):
         os.utime(self.report, (self.started - 100, self.started - 100))
         self.assertEqual(self.result()['status'], 'NOT_VERIFIED')

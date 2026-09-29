@@ -70,8 +70,15 @@ def collect(root, manifest):
     if set(required) - set(identities):
         issues.append({'type': 'REQUIRED_RUN_MISSING', 'runs': sorted(set(required) - set(identities))})
     results = []
+    required_test_runs = set()
     seen = set()
     for run in runs:
+        kind = run.get('kind', 'test')
+        if not isinstance(kind, str) or not kind:
+            raise ValueError('run kind must be a nonempty string')
+        requires_test_report = run.get('requires_test_report', kind == 'test')
+        if not isinstance(requires_test_report, bool):
+            raise ValueError('requires_test_report must be a boolean')
         argv = run.get('argv')
         if not isinstance(argv, list) or not argv or any(not isinstance(x, str) for x in argv):
             raise ValueError('argv must be the observed command as a string array')
@@ -83,7 +90,9 @@ def collect(root, manifest):
         if run['exit_code'] != 0:
             issues.append({'type': 'COMMAND_FAILED', 'run': run['id'], 'exit_code': run['exit_code']})
         groups = run.get('reports', [])
-        if run['id'] in required and not any(g.get('required') is True for g in groups):
+        if run['id'] in required and requires_test_report:
+            required_test_runs.add(run['id'])
+        if run['id'] in required and requires_test_report and not any(g.get('required') is True for g in groups):
             issues.append({'type': 'NO_REQUIRED_REPORT_GROUP', 'run': run['id']})
         group_results = []
         for group in groups:
@@ -130,11 +139,12 @@ def collect(root, manifest):
                 totals[key] += counts[key]
             group_results.append({'pattern': pattern, 'required': group.get('required', False),
                                   'counts': counts, 'paths': paths})
-        results.append({'id': run['id'], 'exit_code': run['exit_code'], 'duration_seconds': end - start,
+        results.append({'id': run['id'], 'kind': kind, 'requires_test_report': requires_test_report,
+                        'exit_code': run['exit_code'], 'duration_seconds': end - start,
                         'groups': group_results})
     if totals['failed'] or totals['errors']:
         issues.append({'type': 'TEST_FAILURES'})
-    if totals['tests'] == 0:
+    if required_test_runs and totals['tests'] == 0:
         issues.append({'type': 'ZERO_TESTS'})
     # Do not copy blocker prose or command arguments that may contain credentials.
     blockers = manifest.get('blockers', [])

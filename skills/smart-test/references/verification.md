@@ -14,7 +14,7 @@
 
 若多条命令会覆盖同一路径报告，在每次结束时立即复制 XML 到 `.smart-test/runs/<run-id>/...` 快照，再执行下一条。保留原始 mtime，以便判定其属于该次执行。不要删除用户已有报告；可在允许范围内清理本轮生成目录或选用全新报告路径。报告中的 stdout/stderr/properties 可能包含秘密，不复制到可共享报告；敏感 XML 只供本地检查，分享前脱敏。
 
-使用 [run-manifest.example.json](../assets/run-manifest.example.json) 的结构记录真实执行。示例日期/命令不代表验证记录，必须替换；完成真实记录后移除 `example_only` 标志，脚本拒绝将示例作为执行证据。每个 reports group 使用尽量精确的 glob；不要用全仓 `**/*.xml` 混入旧报告。`required_run_ids` 列出计划要求的执行项；有 compile-only run 可不带 reports，但它失败仍会使收集结果失败。
+使用 [run-manifest.example.json](../assets/run-manifest.example.json) 的结构记录真实执行。示例日期/命令不代表验证记录，必须替换；完成真实记录后移除 `example_only` 标志，脚本拒绝将示例作为执行证据。每个 run 可声明 `kind` 和 `requires_test_report`；compile-only run 设置 `kind: compile`、`requires_test_report: false` 后只检查退出码，不要求 JUnit 报告。每个 reports group 使用尽量精确的 glob；不要用全仓 `**/*.xml` 混入旧报告。`required_run_ids` 列出计划要求的执行项。
 
 必需套件的每个模块单独分组，否则 A 模块报告可能掩盖 B 模块没有执行。如果新计划要求特定测试，列 `expected_test_ids`（XML 中的 `classname#name`）。report group 的 `required: true`、`min_tests >= 1`，默认不允许 skip；确有已授权的无关 skip 才 `allow_skipped: true`，仍不得把被 skip 的测试算作 expected test。
 
