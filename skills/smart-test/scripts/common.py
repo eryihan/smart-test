@@ -1,4 +1,4 @@
-"""Small, dependency-free utilities shared by Smart-Test helpers."""
+"""Small, dependency-free utilities shared by smart_test helpers."""
 import hashlib
 import json
 import os

@@ -22,7 +22,7 @@ status: OPEN
 
 ## expected_behavior
 
-应有行为及来源（Smart-Test 规则位置、脱敏后的用户要求、可靠测试工程事实）。不要以模型当前输出作为期望依据。
+应有行为及来源（smart_test 规则位置、脱敏后的用户要求、可靠测试工程事实）。不要以模型当前输出作为期望依据。
 
 ## root_cause
 

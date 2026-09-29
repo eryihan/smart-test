@@ -4,7 +4,7 @@
     "name": "eryihan"
   },
   "metadata": {
-    "description": "Smart-Test 的 Claude Code 插件安装源。"
+    "description": "smart_test 的 Claude Code 插件安装源。"
   },
   "plugins": [
     {

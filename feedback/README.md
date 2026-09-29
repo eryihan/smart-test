@@ -4,7 +4,7 @@
 
 ## 1. 在问题现场导出
 
-发现误判、越权、策略错误或漏测后，先保留现场，不为了获得 PASS 改写期望或删除 blocker。尽量在升级 Smart-Test 前导出。导出方法见随安装包提供的 [反馈导出说明](../skills/smart-test/references/feedback.md)。这是一项内部辅助操作，不增加 Smart-Test 用户入口。
+发现误判、越权、策略错误或漏测后，先保留现场，不为了获得 PASS 改写期望或删除 blocker。尽量在升级 smart_test 前导出。导出方法见随安装包提供的 [反馈导出说明](../skills/smart-test/references/feedback.md)。这是一项内部辅助操作，不增加 smart_test 用户入口。
 
 导出包只保存固定枚举、计数和匿名文件编号。业务语义、原始断言和源码不会导出，定位时可能需要补充合成案例。不要为获得更多上下文取消字段白名单或将原始日志、源码粘贴进 case。
 
@@ -13,7 +13,7 @@
 1. 人工检查导出包，确认没有可识别企业、项目或人员的信息，再自行带回本仓库。需要本地暂存时使用被 Git 忽略的 `feedback/imports/`，不要提交整包。
 2. 复制模板到 `feedback/cases/<id>.md`，沿用 `feedback.json` 中的 id，记录 metadata 中的版本、宿主、工作入口、导出时间及可获得的 commit。
 3. 用合成模块、合成数据和中性名称描述 scenario、actual_behavior、expected_behavior。不要填真实人名、内部地址、账号或类名。导出包中为空的描述字段由人工补充，不能假定空值表示没有问题。
-4. 为 expected_behavior 附上依据：已确认的 Smart-Test 规则、用户明确要求或可靠测试工程事实。当前 Agent 输出只作为 actual_behavior，不能反推为正确期望。
+4. 为 expected_behavior 附上依据：已确认的 smart_test 规则、用户明确要求或可靠测试工程事实。当前 Agent 输出只作为 actual_behavior，不能反推为正确期望。
 
 每个 case 至少包含：`id`、`date`、`smart_test_version`、`host`、`workflow`、`feedback_type`、`scenario`、`actual_behavior`、`expected_behavior`、`root_cause`、`fix`、`regression_case`、`status`。未知值显式记录 UNKNOWN 或 null，不能猜测。
 
