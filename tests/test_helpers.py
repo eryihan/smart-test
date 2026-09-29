@@ -217,6 +217,18 @@ class StateTests(Workspace):
         with self.assertRaises(ValueError):
             self.action('directive', self.directive('invalid', 'SESSION'))
 
+    def test_scope_is_matched_when_context_is_explicit(self):
+        directive = self.directive('order-db')
+        directive['scope'] = {'module': ['order*'], 'test_type': ['integration']}
+        self.action('directive', directive)
+        integration = active_directives(self.state, module='order-service', test_type='integration')
+        self.assertEqual([d['id'] for d in integration['active_directives']], ['order-db'])
+        unit = active_directives(self.state, module='order-service', test_type='unit')
+        self.assertEqual(unit['active_directives'], [])
+        self.assertEqual(unit['excluded_directives'][0]['id'], 'order-db')
+        unresolved = active_directives(self.state, test_type='integration')
+        self.assertEqual(unresolved['unresolved_directives'][0]['id'], 'order-db')
+
     def test_one_time_consumption(self):
         self.action('directive', self.directive('once', 'ONE_TIME', {'session': 'one'}))
         self.action('consume', id='once', evidence='Completed the one authorized action')

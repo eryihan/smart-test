@@ -86,7 +86,10 @@ python3 <skill-dir>/scripts/state.py --repo <repo> propose --input <proposal.jso
 python3 <skill-dir>/scripts/state.py --repo <repo> resolve --id DEC-PROFILE --action confirm --source user --evidence <实际用户授权来源>
 python3 <skill-dir>/scripts/state.py --repo <repo> reconcile
 python3 <skill-dir>/scripts/state.py --repo <repo> context --session <session-id> --change <change-id> --phase verify
+python3 <skill-dir>/scripts/state.py --repo <repo> context --module order --path src/main/java/order --test-type integration --phase verify
 ```
+
+`context` 提供 module/path/test_type/phase 时，脚本对 directive scope 做确定性匹配：同一字段内为 OR，不同字段之间为 AND；path 使用仓库相对路径和 glob。缺少 scope 所需上下文时返回 `unresolved_directives`，不默认套用。自然语言到模块、路径和测试类型的映射，以及多个 directive 的语义冲突，仍由 Agent 判断。
 
 `--source human-directive` 用于用户已经明确指定的选择；`--source policy` 仅用于已生效 policy 覆盖的普通决策。不得编造来源或自称“用户已确认”。脚本不能验证对话真实性，来源核验由宿主 Agent 承担。
 

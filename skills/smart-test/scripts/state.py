@@ -3,6 +3,7 @@
 import argparse
 import copy
 from datetime import datetime, timezone
+from fnmatch import fnmatchcase
 import json
 import os
 from pathlib import Path
@@ -109,15 +110,54 @@ def validate_directive(item):
         raise ValueError('directive status must be ACTIVE or DISABLED')
 
 
-def active_directives(state, session=None, change=None, phase=None):
+def _values(value):
+    if value is None:
+        return None
+    return value if isinstance(value, list) else [value]
+
+
+def _scope_match(item, module=None, path=None, test_type=None, phase=None):
+    context = {'module': _values(module), 'path': _values(path),
+               'test_type': _values(test_type), 'phase': _values(phase)}
+    excluded, unresolved = [], []
+    for key, patterns in item.get('scope', {}).items():
+        values = context[key]
+        if not values:
+            unresolved.append(key)
+            continue
+        if not any(fnmatchcase(str(value), str(pattern)) for value in values for pattern in patterns):
+            excluded.append(key)
+    if excluded:
+        return 'OUT_OF_SCOPE', excluded
+    if unresolved:
+        return 'UNRESOLVED', unresolved
+    return 'APPLIES', []
+
+
+def active_directives(state, session=None, change=None, phase=None, module=None, path=None, test_type=None):
     context = {'session': session, 'change': change, 'phase': phase}
-    active, inactive = [], []
+    scoped = any(value is not None for value in (module, path, test_type, phase))
+    active, inactive, excluded, unresolved = [], [], [], []
     for item in state['directives']:
         key = {'SESSION': 'session', 'CHANGE': 'change', 'PHASE': 'phase', 'ONE_TIME': 'session'}.get(item['lifecycle'])
         matched = item['status'] == 'ACTIVE' and (key is None or (context[key] and item['binding'][key] == context[key]))
-        (active if matched else inactive).append(item)
+        if not matched:
+            inactive.append(item)
+            continue
+        if scoped:
+            result, fields = _scope_match(item, module, path, test_type, phase)
+            if result == 'OUT_OF_SCOPE':
+                excluded.append({'id': item['id'], 'fields': fields})
+                continue
+            if result == 'UNRESOLVED':
+                unresolved.append({'id': item['id'], 'fields': fields})
+                continue
+        active.append(item)
     return {'active_directives': active, 'inactive_ids': [d['id'] for d in inactive],
-            'scope_note': 'Agent must match module/path/test_type/phase scope before applying; this is not a merged Effective Context.'}
+            'excluded_directives': excluded, 'unresolved_directives': unresolved,
+            'scope_context': {'module': _values(module), 'path': _values(path),
+                              'test_type': _values(test_type), 'phase': _values(phase)},
+            'scope_note': 'Exact scope fields are matched by the script when context is supplied; semantic mapping and a merged Effective Context remain the Agent responsibility.'}
 
 
 def apply(state, root, args, payload=None):
@@ -128,7 +168,9 @@ def apply(state, root, args, payload=None):
     if command in {'init', 'status', 'reconcile'}:
         return {'state': state, 'invalidated': changed_by_evidence}
     if command == 'context':
-        return active_directives(state, args.session, args.change, args.phase)
+        return active_directives(state, args.session, args.change, args.phase,
+                                 getattr(args, 'module', None), getattr(args, 'path', None),
+                                 getattr(args, 'test_type', None))
     if command == 'directive':
         item = copy.deepcopy(payload)
         validate_directive(item)
@@ -226,6 +268,8 @@ def main():
     p = sub.add_parser('context')
     for name in ('session', 'change', 'phase'):
         p.add_argument('--' + name)
+    for name in ('module', 'path', 'test-type'):
+        p.add_argument('--' + name, dest=name.replace('-', '_'), action='append')
     p = sub.add_parser('consume')
     p.add_argument('--id', required=True)
     p.add_argument('--evidence', required=True)
