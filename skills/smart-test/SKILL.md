@@ -26,7 +26,7 @@ license: Apache-2.0
 ## 开始每次工作
 
 1. 读取仓库的 AGENTS.md / CLAUDE.md、当前请求和 `.smart-test/` 的既有状态。记录工作树状态。若指定只计划或 `--dry-run`，不写任何仓库文件、不运行构建、不启动服务，只读分析并展示拟改动和拟执行命令。
-2. 阅读 [治理与状态](references/governance.md)，捕获本次新增/修改的要求，并检查生效决策的依据。脚本只维护明确结构化的记录；语义冲突、作用域相交和授权是否足够由 Agent 判断。
+2. 阅读 [治理与状态](references/governance.md)，捕获本次新增/修改的要求，并检查生效决策的依据。脚本维护明确结构化的记录，并对明确提供的 module/path/test_type/phase 做确定性 scope 匹配；自然语言到 scope 的语义映射、多个 directive 之间的语义冲突以及授权充分性仍由 Agent 判断。
 3. 选择下面的模式，只读需要的 reference。若未给模式：首次接入用 init；扫描存量测试缺口用 scan；围绕当前改动补测试用 changes。用户直接描述任务时，不要求其改写成命令。
 
 ## 六个用户入口
