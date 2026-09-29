@@ -310,14 +310,8 @@ $smart-test explain
 $smart-test approval list
 ```
 
-## 10. 开发与验收
+## 10. 维护者资料
 
-运行辅助工具测试：
-
-```bash
-python3 -m unittest discover -s tests -v
-```
-
-开发、离线安装和打包说明见 [docs/development.md](docs/development.md)。设计与实现对应关系见 [docs/implementation.md](docs/implementation.md)。验收场景和已完成检查见 [docs/acceptance.md](docs/acceptance.md)。
+开发架构、验收记录和本地发布说明属于维护者资料，保留在源码工作区的 `docs/` 目录，不作为用户安装内容。
 
 安装机制参考 [Claude Code 插件安装](https://code.claude.com/docs/en/plugins/install)、[Claude Code 插件市场](https://code.claude.com/docs/en/plugin-marketplaces) 和 [OpenAI 官方 skill-installer](https://github.com/openai/skills/tree/main/skills/.system/skill-installer)。
