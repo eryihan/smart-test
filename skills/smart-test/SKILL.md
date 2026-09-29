@@ -36,18 +36,24 @@ license: Apache-2.0
 | `init` | 仓库画像、现有测试、Oracle 来源、策略/Policy proposal；授权范围内补缺失基础设施并验证 | [workflows.md](references/workflows.md) |
 | `scan` | 风险排序、测试债务、首批可实施计划；默认不全量补历史测试 | [workflows.md](references/workflows.md) |
 | `changes` | staged/base/当前工作树变更 → 模块及调用影响 → 风险 → 计划 → 授权内实现 → 验证 | [workflows.md](references/workflows.md) |
-| `check` | 检查命令、分层执行、报告证据、质量检查、失败归因 | [verification.md](references/verification.md) |
+| `check` | 检查命令、分层执行、报告证据、质量检查、失败归因 | [verification.md](references/verification.md)、[coverage.md](references/coverage.md) |
 | `pipeline` | 已验证命令 → candidate → pipeline verify → pipeline finalize patch | [ci.md](references/ci.md) |
 
 推荐用户直接说：`扫描这个项目的测试缺口`、`检查当前改动并补测试`、`执行必要验证`、`生成已验证的 CI 候选方案`。Agent 将它们分别映射到 `scan`、`changes`、`check`、`pipeline`，不要求用户记忆内部命令。
 
-读取 references 时使用对应用户入口的流程。`pipeline verify` 和 `pipeline finalize` 是 pipeline 的两个阶段。直接说“检查”时结合上下文区分只读检查与执行测试；明确要求只分析或不执行时，不因入口名包含 check 就运行构建。
+读取 references 时使用对应用户入口的流程；涉及覆盖率时一并读取 [coverage.md](references/coverage.md)。`pipeline verify` 和 `pipeline finalize` 是 pipeline 的两个阶段。直接说“检查”时结合上下文区分只读检查与执行测试；明确要求只分析或不执行时，不因入口名包含 check 就运行构建。
 
 实现 Java 测试或基础设施时，读取 [Java 测试决策](references/java-testing.md)。不要未经检查就复制版本、数据库引擎或工具配置。
 
 高级请求按原语义处理：doctor/profile 只读发现；strategy 更新策略；plan 只生成计划；implement 执行有效计划；explain 展示证据和决策链；directive/approval/status 使用治理流程。不要暗示这些词在 shell 中可直接执行。`init/scan/changes/check/pipeline` 是 Agent 工作模式，不是 shell 子命令。
 
 `--strict`：对新的 profile/context/strategy/plan 按阶段给可审阅结论，已有明确授权仍有效。`--auto`：仅复用已确认的 profile/strategy/policy 执行普通变更；遇新重大基础设施、业务歧义、REQUIRED 冲突、生产修复或正式 CI 修改时检查已有授权，缺失则停在具体方案处。`--fast` 不免除必需风险验证；`--full` 扩大到相关模块/完整验证集。
+
+## 覆盖率策略
+
+覆盖率是可选的质量门。详细的范围、基线、报告状态和判定规则见 [覆盖率策略](references/coverage.md)。用户没有指定覆盖率模式或阈值时，不新增 Smart-Test 的覆盖率工具、数字阈值或阻断条件；仍须继承并检查仓库已有的 coverage、changed coverage 或关键模块门禁。没有既有门禁时，覆盖率可以不参与本次判定。
+
+覆盖率要求应在 `init`、`changes` 或 `check` 中用自然语言说明，例如“只报告本次覆盖率”“整体行覆盖率至少 75%”“以 origin/main 为基线，增量行覆盖率至少 80%”“整体和增量都要求达标”。`--fast` 与 `--full` 只决定执行哪些测试，不能改变覆盖率模式。未产生匹配当前代码的报告、增量无法映射到基线或必需范围不完整时，结果为 `UNKNOWN`；没有可执行变更行时增量项为 `NOT_APPLICABLE`，不会当作 100%。
 
 ## 随包工具
 

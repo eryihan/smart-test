@@ -13,7 +13,7 @@
 ## init
 
 - 建立画像、现有测试评估、Oracle 来源清单和缺口。需求/acceptance criteria → 设计 → API/message contract → 域规则 → 已确认历史测试 → schema/constraint → 已确认线上行为 → 当前实现；优先级不能自动解决相互冲突的证据。
-- 形成最低充分层级策略：各风险对应哪层，复用什么，新增什么，环境和成本前提。test-policy 明确命名/隔离、required suites、coverage policy、生产修改边界、模式、质量门；不硬设 80%。
+- 形成最低充分层级策略：各风险对应哪层，复用什么，新增什么，环境和成本前提。test-policy 明确命名/隔离、required suites、[coverage policy](coverage.md)、生产修改边界、模式、质量门；覆盖率未被用户或仓库要求时不硬设数字阈值。
 - 首次 profile 和 strategy 可合并展示，授权充足直接记录；需要用户决定的只有尚未授权的关键取舍。只有 profile proposal 未确认时，可以先准备下游方案内容，不把它写成 EFFECTIVE。
 - 依据 [java-testing.md](java-testing.md) 补基础设施。先比较现有依赖和插件，使用局部 patch；只改测试相关依赖、test profile、fixture。建立最小有意义的测试并执行，记录真实数量与结果。
 - init 不默认改生产逻辑/迁移/正式 CI，也不默认治理全部历史债务。已有用户授权优先。

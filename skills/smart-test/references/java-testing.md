@@ -35,7 +35,7 @@ Failsafe 必须绑定 integration-test 和 verify 两个 goal，`mvn verify` 才
 
 优先使用现有可信 `./mvnw`；无 wrapper 才使用已安装 mvn。多模块按实际 reactor 依赖使用 `-pl` / `-am`，核实消费者也被选中。`-Dtest=...` 在没有该类的依赖模块可能报错，不能全局关闭 no-tests 失败来掩盖错误选择。
 
-JaCoCo 复用已管理版本和 argLine（含其他 agent）。测试 agent 与 report/check phase 分开核查。只展示实际生成的 coverage；没有报告记 UNKNOWN，不写 0 或估计值。
+JaCoCo 复用已管理版本和 argLine（含其他 agent）。测试 agent 与 report/check phase 分开核查。覆盖率范围、阈值和基线按 [coverage.md](coverage.md) 记录；只展示实际生成的 coverage，没有报告记 UNKNOWN，不写 0 或估计值。
 
 ## Gradle
 

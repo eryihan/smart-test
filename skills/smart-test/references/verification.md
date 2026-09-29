@@ -30,6 +30,8 @@ python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifes
 
 ## 项目质量门
 
+覆盖率按 [coverage.md](coverage.md) 解析。未指定的新门禁不新增阈值，但仓库已有门禁仍然适用；`REPORT_ONLY` 只展示结果，不把报告转换为阻断条件。
+
 只有以下全满足才将 verification 标 PASS：
 
 - 必需命令实际执行且 exit 0，必需测试真实被发现并执行；未因 skip/profile/task 配错漏跑。

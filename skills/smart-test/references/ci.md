@@ -2,7 +2,7 @@
 
 ## pipeline
 
-输入必须包含：当前有效策略/policy、完整所需验证的 PASS、实际命令和报告、Java/build 版本、Runner/网络/容器能力证据、secret 名称而非值。只有 Unit 通过而必需 Integration BLOCKED 时，不生成可当作有效流水线的 candidate；可在报告中说明缺什么。
+输入必须包含：当前有效策略/policy（包括 [coverage policy](coverage.md)）、完整所需验证的 PASS、实际命令和报告、Java/build 版本、Runner/网络/容器能力证据、secret 名称而非值。只有 Unit 通过而必需 Integration BLOCKED 时，不生成可当作有效流水线的 candidate；可在报告中说明缺什么。
 
 没有指明 provider 时复用仓库已有 provider；没有 CI 且用户未指定时，先给候选选择及理由，未获授权不改正式位置。支持 GitHub Actions、GitLab CI；其他 provider 依据其现有约定生成并说明验证边界，不伪造 provider 已验证。
 

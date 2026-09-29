@@ -202,7 +202,24 @@ $smart-test pipeline finalize
 
 `finalize` 默认输出可审阅的 patch，不直接覆盖正式 CI。正式修改需要明确授权。
 
-## 6. 指定约束和业务依据
+## 6. 覆盖率策略
+
+覆盖率可以由用户指定，也可以完全不参与本次 Smart-Test 判定。未指定时，Smart-Test 不添加新的覆盖率工具、数字阈值或阻断条件；如果仓库已有 coverage、changed coverage 或关键模块门禁，仍按仓库规则检查。未指定且没有既有门禁时，覆盖率记录为 `NOT_APPLICABLE`，不会影响其他验证。
+
+可在 `init`、`changes` 或 `check` 中直接说明要求：
+
+```text
+本次只报告覆盖率，不设置阻断阈值。
+本次要求 order 模块整体行覆盖率至少 75%。
+以 origin/main 为基线，本次要求增量行覆盖率至少 80%。
+整体行覆盖率至少 75%，并且以 origin/main 为基线的增量行覆盖率至少 80%。
+```
+
+Smart-Test 将要求记录为 `UNSPECIFIED`、`REPORT_ONLY`、`OVERALL`、`INCREMENTAL` 或 `BOTH`。整体覆盖率按可执行项总数加权汇总；增量覆盖率只计算基线到当前版本之间新增或修改的可执行代码行。没有可执行变更行是 `NOT_APPLICABLE`，无法解析基线、源码映射或报告与当前代码不匹配是 `UNKNOWN`，不会用整体结果替代增量结果。阈值按原始百分比与 `>=` 比较，不先四舍五入。完整规则见 [覆盖率策略](skills/smart-test/references/coverage.md)。
+
+`check --fast` 和 `check --full` 只控制执行范围，不改变覆盖率模式；快速验证不能证明整体门禁已通过。覆盖率通过也不能替代关键业务行为、接口契约或数据库语义的测试。
+
+## 7. 指定约束和业务依据
 
 可以在任意阶段补充约束。建议明确写出范围、强度和生命周期：
 
@@ -232,7 +249,7 @@ Smart-Test 会区分：
 | `--strict` | 对新的关键策略和计划逐阶段展示 |
 | `--auto` | 复用已确认的策略和授权，自动处理普通变更；遇到新高风险选择时暂停 |
 
-## 7. 项目产物
+## 8. 项目产物
 
 Smart-Test 将项目记忆和报告写入目标仓库的 `.smart-test/`：
 
@@ -250,9 +267,9 @@ Smart-Test 将项目记忆和报告写入目标仓库的 `.smart-test/`：
 
 文件按流程逐步生成，不会一次创建全部产物。测试代码写入项目现有测试目录。不要把凭证、生产连接信息或真实敏感数据写入 `.smart-test/`。
 
-## 8. 更新和卸载
+## 9. 更新和卸载
 
-### 8.1 Claude Code
+### 9.1 Claude Code
 
 ```bash
 claude plugin marketplace update smart-test
@@ -267,7 +284,7 @@ claude plugin uninstall smart-test@smart-test
 
 项目级操作增加 `--scope project`。
 
-### 8.2 Codex
+### 9.2 Codex
 
 在 Codex 中发送：
 
@@ -278,7 +295,7 @@ claude plugin uninstall smart-test@smart-test
 
 卸载时删除已安装的 `smart-test` skill 目录。卸载不会删除目标 Java 仓库中的测试代码和 `.smart-test/`。
 
-## 9. 常见问题
+## 10. 常见问题
 
 ### 找不到 skill
 
@@ -312,7 +329,7 @@ $smart-test explain
 $smart-test approval list
 ```
 
-## 10. 许可证与维护者资料
+## 11. 许可证与维护者资料
 
 本项目采用 [Apache License 2.0](LICENSE)。开发架构、验收记录和本地发布说明属于维护者资料，保留在源码工作区的 `docs/` 目录，不作为用户安装内容。
 
