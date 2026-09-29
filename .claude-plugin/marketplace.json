@@ -1,0 +1,17 @@
+{
+  "name": "smart-test",
+  "owner": {
+    "name": "eryihan"
+  },
+  "metadata": {
+    "description": "Smart-Test 的 Claude Code 插件安装源。"
+  },
+  "plugins": [
+    {
+      "name": "smart-test",
+      "source": "./",
+      "description": "分析 Java / Spring Boot 仓库风险，补充测试并验证 CI 方案。",
+      "category": "testing"
+    }
+  ]
+}

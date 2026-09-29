@@ -1,0 +1,11 @@
+{
+  "name": "smart-test",
+  "version": "0.1.1",
+  "description": "搭建测试、扫描测试缺口、检查当前改动，并生成已验证的 CI 候选方案。",
+  "author": {
+    "name": "eryihan"
+  },
+  "homepage": "https://github.com/eryihan/smart_test#readme",
+  "repository": "https://github.com/eryihan/smart_test",
+  "keywords": ["testing", "java", "spring-boot", "ci"]
+}
