@@ -195,7 +195,7 @@ Smart-Test 会记录实际命令、退出码、测试数量、失败、跳过、
 $smart-test pipeline
 ```
 
-Smart-Test 先生成 `.smart-test/ci-candidate/`，再检查：
+Smart-Test 先校验相关 artifact 和当前验证状态；结构校验返回 `INVALID` 时，修复并重验通过前不生成候选。确认必需验证通过后，生成 `.smart-test/ci-candidate/`，再检查：
 
 1. CI 中的命令是否与本地已验证命令一致。
 2. Unit、Integration、Contract 和关键流程是否被正确纳入。

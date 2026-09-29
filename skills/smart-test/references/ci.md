@@ -4,7 +4,7 @@
 
 输入必须包含：当前有效策略/policy（包括 [coverage policy](coverage.md)）、完整所需验证的 PASS、实际命令和报告、Java/build 版本、Runner/网络/容器能力证据、secret 名称而非值。只有 Unit 通过而必需 Integration BLOCKED 时，不生成可当作有效流水线的 candidate；可在报告中说明缺什么。
 
-生成 candidate 前必须运行 `python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require business-oracle.json --require effective-context.json --require test-policy.json --require test-plan.json --require status.json`。校验失败时不生成 candidate；先修复 artifact 并重验，再核对所需验证是否确实 PASS。`VALID` 本身不证明执行通过，不能覆盖 BLOCKED、陈旧证据或业务冲突。后续 verify / finalize 若更新这些产物，同样先重验再继续。
+生成 candidate 前必须运行 `python3 <skill-dir>/scripts/validate_artifacts.py --repo <repo> --require business-oracle.json --require effective-context.json --require test-policy.json --require test-plan.json --require status.json`。校验返回 `INVALID` 时不得生成或继续使用可视为有效的 CI candidate；输入错误或校验未执行也不满足前提。先修复 artifact 并重验，再核对所需验证是否确实 PASS。`VALID` 本身不证明执行通过，不能覆盖 BLOCKED、陈旧证据或业务冲突。后续 verify / finalize 若更新这些产物，同样先重验再继续。
 
 没有指明 provider 时复用仓库已有 provider；没有 CI 且用户未指定时，先给候选选择及理由，未获授权不改正式位置。支持 GitHub Actions、GitLab CI；其他 provider 依据其现有约定生成并说明验证边界，不伪造 provider 已验证。
 
