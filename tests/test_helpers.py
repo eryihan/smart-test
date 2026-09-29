@@ -606,6 +606,35 @@ class ArtifactTests(Workspace):
         self.assertEqual(result['status'], 'INVALID')
         self.assertIn('EXAMPLE_ARTIFACT', {i['type'] for i in result['issues']})
 
+    def test_malformed_plan_shapes_are_rejected(self):
+        cases = [
+            {'items': ['malformed required item']},
+            {'items': ['bad', {'required': False}]},
+            {'test_plan': 'oops'},
+            {},
+        ]
+        for plan in cases:
+            with self.subTest(plan=plan):
+                self.put_json('test-plan.json', plan)
+                result = validate(self.root, required=['test-plan.json'])
+                self.assertEqual(result['status'], 'INVALID')
+
+    def test_missing_and_malformed_plan_items_report_distinct_issues(self):
+        self.put_json('test-plan.json', {'items': ['bad']})
+        kinds = {i['type'] for i in validate(self.root, ['test-plan.json'])['issues']}
+        self.assertEqual(kinds, {'TEST_PLAN_ITEM_INVALID'})
+        self.put_json('test-plan.json', {})
+        kinds = {i['type'] for i in validate(self.root, ['test-plan.json'])['issues']}
+        self.assertEqual(kinds, {'TEST_PLAN_ITEMS_MISSING'})
+
+    def test_malformed_oracle_entries_are_rejected(self):
+        self.put_json('business-oracle.json', {'entries': ['not-an-object', {'business_truth': True}]})
+        result = validate(self.root, required=['business-oracle.json'])
+        self.assertEqual(result['status'], 'INVALID')
+        kinds = {i['type'] for i in result['issues']}
+        self.assertIn('ORACLE_ENTRY_INVALID', kinds)
+        self.assertIn('BUSINESS_TRUTH_SOURCE_MISSING', kinds)
+
     def test_missing_required_artifact_is_invalid(self):
         result = validate(self.root, required=['test-plan.json'])
         self.assertEqual(result['status'], 'INVALID')

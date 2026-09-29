@@ -21,23 +21,23 @@ def _list(value):
     return isinstance(value, list)
 
 
-def _records(data, keys):
-    records = []
-    if isinstance(data, dict) and 'business_truth' in data:
-        records.append(data)
-    for key in keys:
-        value = data.get(key) if isinstance(data, dict) else None
-        if isinstance(value, list):
-            records.extend(item for item in value if isinstance(item, dict))
-    return records
-
-
 def _issue(issues, artifact, kind):
     issues.append({'artifact': artifact, 'type': kind})
 
 
 def _validate_oracle(data, artifact, issues):
-    for item in _records(data, ('entries', 'items', 'claims', 'oracle')):
+    records = []
+    if isinstance(data, dict) and 'business_truth' in data:
+        records.append(data)
+    for key in ('entries', 'items', 'claims', 'oracle'):
+        value = data.get(key) if isinstance(data, dict) else None
+        if isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    records.append(item)
+                else:
+                    _issue(issues, artifact, 'ORACLE_ENTRY_INVALID')
+    for item in records:
         if item.get('business_truth') is True:
             if not _text(item.get('source')):
                 _issue(issues, artifact, 'BUSINESS_TRUTH_SOURCE_MISSING')
@@ -46,13 +46,22 @@ def _validate_oracle(data, artifact, issues):
 
 
 def _validate_plan(data, artifact, issues):
-    plan = data.get('test_plan', data) if isinstance(data, dict) else {}
-    items = plan.get('items', []) if isinstance(plan, dict) else []
+    plan = data.get('test_plan', data)
+    if not isinstance(plan, dict):
+        _issue(issues, artifact, 'TEST_PLAN_INVALID')
+        return
+    if 'items' not in plan:
+        _issue(issues, artifact, 'TEST_PLAN_ITEMS_MISSING')
+        return
+    items = plan['items']
     if not _list(items):
         _issue(issues, artifact, 'TEST_PLAN_ITEMS_INVALID')
         return
     for item in items:
-        if not isinstance(item, dict) or item.get('required') is not True:
+        if not isinstance(item, dict):
+            _issue(issues, artifact, 'TEST_PLAN_ITEM_INVALID')
+            continue
+        if item.get('required') is not True:
             continue
         for key in ('id', 'target', 'risk', 'suite'):
             if not _text(item.get(key)):
