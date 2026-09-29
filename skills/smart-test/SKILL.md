@@ -1,6 +1,6 @@
 ---
 name: smart-test
-description: "面向 Java / Spring Boot 仓库的测试工程：初始化测试体系、扫描测试缺口、检查当前改动、执行验证与生成 CI 候选方案。用户要求补后端测试、分析测试缺口、搭建测试基础设施，或使用 smart-test init/scan/changes/check/pipeline 时使用。"
+description: "面向 Java / Spring Boot 仓库的测试工程：提供帮助、初始化测试体系、扫描测试缺口、检查当前改动、执行验证与生成 CI 候选方案。用户要求补后端测试、分析测试缺口、搭建测试基础设施，或使用 smart-test help/init/scan/changes/check/pipeline 时使用。"
 license: Apache-2.0
 ---
 
@@ -8,7 +8,7 @@ license: Apache-2.0
 
 先理解仓库和业务依据，再选择能验证风险的最低充分测试层级。V1 面向 Java 8+、Spring Boot 2/3、Maven/Gradle；其他版本先核查兼容性，其他语言仅分析并说明范围，不套用 Java 配置。
 
-这是 Agent Skill，不是已安装的 `smart-test` 可执行程序。优先使用下面的五个用户入口或直接描述任务。Codex 使用 `$smart-test scan`，Claude 插件使用 `/smart-test:smart-test scan`，独立 skill 使用 `/smart-test scan`。脚本路径相对于本 SKILL.md 所在目录；运行时替换成实际绝对路径，目标仓库通过 `--repo` 指定，不依赖当前目录，也不要假设插件位于个人 skills 目录。
+这是 Agent Skill，不是已安装的 `smart-test` 可执行程序。优先使用下面的六个用户入口或直接描述任务。Codex 使用 `$smart-test scan`，Claude 插件使用 `/smart-test:smart-test scan`，独立 skill 使用 `/smart-test scan`。脚本路径相对于本 SKILL.md 所在目录；运行时替换成实际绝对路径，目标仓库通过 `--repo` 指定，不依赖当前目录，也不要假设插件位于个人 skills 目录。
 
 ## 不可省略的判断
 
@@ -29,19 +29,20 @@ license: Apache-2.0
 2. 阅读 [治理与状态](references/governance.md)，捕获本次新增/修改的要求，并检查生效决策的依据。脚本只维护明确结构化的记录；语义冲突、作用域相交和授权是否足够由 Agent 判断。
 3. 选择下面的模式，只读需要的 reference。若未给模式：首次接入用 init；扫描存量测试缺口用 scan；围绕当前改动补测试用 changes。用户直接描述任务时，不要求其改写成命令。
 
-## 五个用户入口
+## 六个用户入口
 
 | 用户入口 | 工作与产物 | 详细流程 |
-|---|---|---|---|
+|---|---|---|
+| `help` | 读取用户帮助，解释入口、控制项、产物和边界 | [help.md](references/help.md) |
 | `init` | 仓库画像、现有测试、Oracle 来源、策略/Policy proposal；授权范围内补缺失基础设施并验证 | [workflows.md](references/workflows.md) |
 | `scan` | 风险排序、测试债务、首批可实施计划；默认不全量补历史测试 | [workflows.md](references/workflows.md) |
 | `changes` | staged/base/当前工作树变更 → 模块及调用影响 → 风险 → 计划 → 授权内实现 → 验证 | [workflows.md](references/workflows.md) |
 | `check` | 检查命令、分层执行、报告证据、质量检查、失败归因 | [verification.md](references/verification.md)、[coverage.md](references/coverage.md) |
 | `pipeline` | 已验证命令 → candidate → pipeline verify → pipeline finalize patch | [ci.md](references/ci.md) |
 
-推荐用户直接说：`扫描这个项目的测试缺口`、`检查当前改动并补测试`、`执行必要验证`、`生成已验证的 CI 候选方案`。Agent 将它们分别映射到 `scan`、`changes`、`check`、`pipeline`，不要求用户记忆内部命令。
+推荐用户直接说：`查看 smart-test 帮助`、`扫描这个项目的测试缺口`、`检查当前改动并补测试`、`执行必要验证`、`生成已验证的 CI 候选方案`。Agent 将它们分别映射到 `help`、`scan`、`changes`、`check`、`pipeline`，不要求用户记忆内部命令。
 
-读取 references 时使用对应用户入口的流程；涉及覆盖率时一并读取 [coverage.md](references/coverage.md)。`pipeline verify` 和 `pipeline finalize` 是 pipeline 的两个阶段。直接说“检查”时结合上下文区分只读检查与执行测试；明确要求只分析或不执行时，不因入口名包含 check 就运行构建。
+`help` 必须读取 [help.md](references/help.md)，按用户指定的主题回答；没有主题时返回入口和推荐流程。`help` 是只读模式，不扫描项目、不执行构建、不启动服务、不创建或更新 `.smart-test/`。读取其他 references 时使用对应用户入口的流程；涉及覆盖率时一并读取 [coverage.md](references/coverage.md)。`pipeline verify` 和 `pipeline finalize` 是 pipeline 的两个阶段。直接说“检查”时结合上下文区分只读检查与执行测试；明确要求只分析或不执行时，不因入口名包含 check 就运行构建。
 
 实现 Java 测试或基础设施时，读取 [Java 测试决策](references/java-testing.md)。不要未经检查就复制版本、数据库引擎或工具配置。
 
