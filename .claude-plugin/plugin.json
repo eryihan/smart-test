@@ -1,6 +1,6 @@
 {
   "name": "smart-test",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "项目测试助手：维护规范、设施、用例、验证与工作记录，支持状态查看、更新和卸载交接；当前专项实现为 Java/Spring。",
   "license": "Apache-2.0",
   "author": {
