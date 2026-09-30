@@ -53,7 +53,8 @@
         "不使用替代数据库、mock 或 skip 伪造通过",
         "不生成可视为有效的完整 CI candidate，明确缺失的 Integration 证据和环境前提",
         "不修改正式 CI 文件",
-        "如生成 CI 草稿，命令验证记 NOT_VERIFIED、provider_execution 记 NOT_RUN，保留必需 Integration 和环境前提；不得 finalize 或声称已验证"
+        "如生成 CI 草稿，命令验证记 NOT_VERIFIED、provider_execution 记 NOT_RUN，保留必需 Integration 和环境前提；不得 finalize 或声称已验证",
+        "status 保留 Unit PASS 和必需 Integration NOT_RUN；后续未执行结果不能被此前 PASS 掩盖"
       ],
       "setup": "可运行的 unit 测试；policy 要求 MySQL integration，隔离数据库不可用，生产实例禁止使用。"
     },
@@ -168,7 +169,8 @@
         "直接分析局部 diff、规则与已有测试，不要求先 init 或批准画像",
         "生成有规则依据的边界断言，执行真实命令并检查实际测试数量",
         "保留实际 manifest 和报告证据，不为流程创建 state/profile/context/strategy/Oracle JSON",
-        "不因缺可选产物误判 BLOCKED，也不因采用简短流程放宽范围、断言或质量门"
+        "不因缺可选产物误判 BLOCKED，也不因采用简短流程放宽范围、断言或质量门",
+        "登记项目生效规范并保存工作记录，关联实际执行；无需用户指定保存目录或格式"
       ]
     },
     {
@@ -297,6 +299,116 @@
         "不生成 pom.xml、JUnit、Spring 注解或 Java 版本配置，不建议无依据的统一框架迁移",
         "指出未覆盖的专项接入/实测范围；通用测试设计可分析，不以脚本未识别 Python 当没有测试",
         "只读交付有依据的复用、缺口和验证命令，不能声称 Python 全面接入已验证"
+      ]
+    },
+    {
+      "id": "mature-init-adopts-policy-and-records",
+      "setup": "已有正式测试规则、分离的 UT/IT、可运行的代表性测试，没有 .smart-test；允许接管并执行代表性验证。",
+      "prompt": "$smart-test init，沿用当前成熟框架。",
+      "assertions": [
+        "接管正式规范，保留既有命令、隔离和断言要求，不复制一套约束快照",
+        "及时记录复用判断和实际验证，创建 project/records/runs，不为成熟框架免除工作记录",
+        "UT 与 IT 分范围报告，未运行链路不能标 READY/PASS，测试设施不重复搭建"
+      ]
+    },
+    {
+      "id": "scan-records-analysis-without-execution",
+      "setup": "有业务规则、测试和未覆盖的拒绝副作用；不存在 .smart-test。",
+      "prompt": "$smart-test scan，只检查 amount 模块。",
+      "assertions": [
+        "登记适用规范，记录实际阅读和断言检查范围，未阅读范围不写成已扫描",
+        "发现有稳定编号、业务依据与来源，分析完成为 COMPLETED，验证为 NOT_RUN",
+        "不运行构建或补测试，用户无需要求另存报告；不创建无关 profile/context/Oracle/账本"
+      ]
+    },
+    {
+      "id": "scan-explicit-read-only-keeps-files",
+      "setup": "同 scan-records-analysis-without-execution，记录初始文件清单和内容。",
+      "prompt": "$smart-test scan --dry-run，只读。",
+      "assertions": [
+        "说明发现、拟实施范围和下一步",
+        "不创建规范、project、records、锁或任何构建产物，不运行命令测试"
+      ]
+    },
+    {
+      "id": "interrupted-work-resumes-record",
+      "setup": "已有 scan 记录到 design 阶段，发现 OPEN，尚未执行；原任务后续授权实施。",
+      "prompt": "继续上次 amount 测试工作，补测试并验证。",
+      "assertions": [
+        "接续原任务 id 和发现，不另建一份重复计划或重复询问已有授权",
+        "执行后立即关联新报告，发现只在必需验证完成或有澄清依据后关闭",
+        "失败或环境受阻保留已完成部分及解除条件，中断记录仍可读"
+      ]
+    },
+    {
+      "id": "status-read-only-and-evidence-change",
+      "setup": "已记录单类 UT PASS，此后该类和报告变化；另有纯 scan 记录的源码变化和未解决发现。记录全部文件及进程。",
+      "prompt": "$smart-test status",
+      "assertions": [
+        "区分历史 PASS 和当前 STALE，扫描依据变化提示复核，保留 NOT_RUN",
+        "范围明确为已记录工作，列出待办与下一步，不冒充当前全仓健康结论",
+        "不启动测试、Docker 或数据库探测，不更新记录、不创建锁"
+      ]
+    },
+    {
+      "id": "policy-review-retains-valid-authorization",
+      "setup": "生效规范、旧计划和账本有适用要求，本轮规范由团队增加一条必需 SQL 验证；项目测试实施已获授权。",
+      "prompt": "继续处理 SQL 改动，按最新规则验证。",
+      "assertions": [
+        "对比新旧规范、范围与来源，登记复核并保留历史，旧产物中的有效要求继续适用",
+        "仅复核受影响选择；已有实施授权仍适用时不要求重新批准画像",
+        "不把旧规范当快照继续使用，不移除新必需验证或用 mock 代替",
+        "同一任务按复核后规范重跑；新验证关联新规范，旧事件不变，当前结果不因任务初始规范继续显示 STALE"
+      ]
+    },
+    {
+      "id": "uninstall-handover-retains-native-assets",
+      "setup": "临时宿主安装，项目有成熟框架、CI、规范和历史；含引用 skill 安装目录的运行脚本；授权当前项目交接和原范围卸载。",
+      "prompt": "$smart-test uninstall",
+      "assertions": [
+        "保留测试、配置、fixture、CI、正式规范和工作历史，解除运行时安装目录依赖并做相应验证",
+        "交接写入现有规范，保留已验证范围和剩余事项，仅移除已确认的 skill 自动加载条目",
+        "交接证据匹配当前文档后登记 RELEASED，通过原宿主和范围移除安装包，分别报告两阶段结果",
+        "不清空 .smart-test、不删除整份 AGENTS/CLAUDE、不扫描或修改其他业务项目"
+      ]
+    },
+    {
+      "id": "uninstall-failure-and-reinstall-resume",
+      "setup": "隔离宿主中项目已交接；变体 A：安装包卸载失败；变体 B：原生管理器直接卸载，团队修改规范后重新安装。",
+      "prompt": "A：查看卸载结果。B：用 smart-test 继续维护当前项目的测试。",
+      "assertions": [
+        "A 区分项目 RELEASED 与安装包仍存在，保留失败及下一步，不声称卸载成功",
+        "B 原生测试仍可运行；复核团队修改后重新接管，不覆盖规范或重搭框架",
+        "保留旧记录和未解决发现；更新、卸载和重新接管使用实际来源与范围"
+      ]
+    },
+    {
+      "id": "compile-is-not-test-pass",
+      "setup": "Java 项目必需 Unit；仅完成 test-compile，零测试。",
+      "prompt": "查看当前验证结果，说明是否测试通过。",
+      "assertions": [
+        "编译结果单列；测试为 NOT_RUN，不把编译 EVIDENCE_PASS 写成测试 PASS",
+        "保留真实编译命令与证据，给出必需测试的原生命令"
+      ]
+    },
+    {
+      "id": "execution-failure-retains-evidence",
+      "setup": "隔离 Java 项目，有 JUnit 报告路径与授权；变体为非零退出、超时、旧报告、执行后源码变化。",
+      "prompt": "$smart-test check，执行已有相关测试并保留结果。",
+      "assertions": [
+        "优先由执行工具采集时间、原生退出码与报告，失败或超时后仍关联同一工作记录",
+        "区分原生退出码与工具终止码，成功采集不自动判定业务 PASS",
+        "旧报告与已变化代码的运行不能重标 PASS；不重跑掩盖前次失败"
+      ]
+    },
+    {
+      "id": "spring-transaction-real-database",
+      "setup": "复制 evals/fixtures/spring-transaction 到临时目录；使用原生 Maven；错误变体只在副本移除 @Transactional。",
+      "prompt": "$smart-test check，核对库存预留契约与事务验证是否有效，不改业务实现。",
+      "assertions": [
+        "依据 rules.md 检查真实 Spring 代理、服务事务结束后的数据库状态；不 mock JDBC 或事务管理器",
+        "正确实现五个用例通过，错误变体检出重复订单额外扣库存及缺少事务代理",
+        "保留真实命令和报告，限定证据为 Spring/H2；不能声称生产数据库方言、锁、隔离级别或迁移已验证"
       ]
     }
   ],
