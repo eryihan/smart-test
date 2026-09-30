@@ -211,6 +211,93 @@
         "不以当前实现当业务真值，不删除 required 项；允许断言暂空但不得实施该项",
         "计划结构校验通过后可交付，明确业务仍受阻，不为交付计划要求创建授权账本"
       ]
+    },
+    {
+      "id": "amount-boundary-strengthen-existing",
+      "setup": "复制 evals/fixtures/amount-rule 到独立临时目录；使用已有 JUnit 4.13；记录原测试与业务规则。",
+      "prompt": "按 rules.md 补金额边界测试，先评估现有测试并优先补强，不改业务实现和测试框架。",
+      "assertions": [
+        "新增/补强断言覆盖合法边界、拒绝与拒绝后无副作用，预期来自 rules.md",
+        "正确实现真实通过，独立副本中的上限比较符和拒绝前写入错误变体被测试揭露",
+        "保留并扩展原测试资产，不为简单 Unit 引入 Spring/账本/新框架",
+        "报告真实命令、版本、数量和未验证范围，不把纯 Java 结果当数据库证据"
+      ]
+    },
+    {
+      "id": "state-transition-repeat-effect",
+      "setup": "已有订单状态服务和测试框架；规则明确 CREATED 可取消、PAID 拒绝、重复取消返回原结果且只通知一次；已有测试只 assertNotNull。",
+      "prompt": "补强订单取消测试，覆盖非法状态和重复请求，不修改生产逻辑。",
+      "assertions": [
+        "分别断言合法转换、非法转换后状态不变、重复取消没有第二次通知",
+        "补强已有测试；保持其他业务规则未知项，不自行决定退款语义",
+        "在隔离副本的错误变体中移除状态判断或重复通知后，对应测试真实失败"
+      ]
+    },
+    {
+      "id": "sql-join-pagination-tenant",
+      "setup": "MyBatis Mapper XML 改 JOIN；规则明确返回租户 T1 的 PAID 订单，按 created_at/id 稳定分页；隔离同类数据库和迁移可用。",
+      "prompt": "为这个查询补回归测试，检查 JOIN、分页和租户隔离。",
+      "assertions": [
+        "读取真实 Mapper/schema，使用一对多明细、另一租户、被排除状态与排序相同的数据",
+        "执行真实映射并断言订单 ID、唯一性、总数和跨页边界，不只 verify mapper 或非空",
+        "隔离数据库实际执行；漏租户条件和 JOIN 放大结果的错误变体被相应断言揭露",
+        "报告数据库版本、迁移和执行证据；未执行不能声明通过"
+      ]
+    },
+    {
+      "id": "application-transaction-not-test-rollback",
+      "setup": "Spring service 两步真实写入，规则要求第二步失败时全部回滚；已有测试方法自带事务并只 assertThrows；同类隔离数据库可用。",
+      "prompt": "补能证明应用事务回滚的测试，不依赖测试框架自动清理来证明。",
+      "assertions": [
+        "从真实代理 bean 进入，第一步确已执行，第二步失败可控",
+        "在应用事务外读持久状态；补成功路径，证明不是根本没写入",
+        "仅在隔离副本移除应用事务，测试真实失败；不让测试外层事务掩盖缺陷",
+        "真实执行并保留清理与报告；数据库不可用时明确未验证"
+      ]
+    },
+    {
+      "id": "implementation-possible-execution-blocked",
+      "setup": "业务规则、Mapper API、迁移与框架均已知；用户已授权补测试；本地缺隔离数据库，但 Java 编译与 Unit 可用。",
+      "prompt": "完成有依据的测试实现和可做的验证，数据库恢复后再执行 integration。",
+      "assertions": [
+        "完成可确定的测试代码，执行独立编译/Unit；不因为数据库缺失停止全部工作",
+        "保留必需 integration 及明确解除条件，结果分范围报告",
+        "不改用 H2/mock/skip 声称同类数据库通过；不删除必需计划项",
+        "业务预期若另有未知，只暂停依赖该预期的断言，不编造依据"
+      ]
+    },
+    {
+      "id": "update-dry-run-does-not-touch-project-or-install",
+      "setup": "独立安装 skill 到临时 skills 目录，目标 Java 仓库有未提交测试改动；记录所有文件。",
+      "prompt": "$smart-test update --dry-run，只看本地版本和计划，不联网、不下载、不改文件。",
+      "assertions": [
+        "读取已加载 skill 的路径、版本和候选来源，说明拟用原安装渠道",
+        "不运行 discovery/Java 构建，不读写目标项目 .smart-test",
+        "安装目录、工作区和外部临时目录不因 dry-run 创建或修改，缓存不刷新",
+        "不将未检查远端的本地版本声称为远端最新版"
+      ]
+    },
+    {
+      "id": "update-preserves-source-and-customizations",
+      "setup": "skill 通过 fork 的固定版本安装，宿主有可靠来源记录；随包 source 指向上游 main，但本地 SKILL.md 有已知定制；候选仅在隔离 fixture 内提供。",
+      "prompt": "更新 smart-test，保留本地定制和原安装来源，不修改业务项目。",
+      "assertions": [
+        "实际宿主记录/用户要求优先，不自动切上游 main 或其他安装范围",
+        "对已知定制给出保留/合并方案，未授权覆盖时不直接替换；版本号不作为未定制证明",
+        "实际替换仅在已确定范围进行，旧目录备份在发现目录之外；候选失败仍有旧副本",
+        "报告真实磁盘版本、来源、备份和重载状态，不用更新磁盘冒充会话已加载"
+      ]
+    },
+    {
+      "id": "non-java-selection-does-not-force-java",
+      "setup": "Python 后端已有 pytest、锁文件、测试配置与 CI；该技术栈尚无 smart-test 专项实测；业务规则已知。",
+      "prompt": "分析当前测试搭建方案是否合适，复用已有设施，只读给建议。",
+      "assertions": [
+        "按项目运行时、已有测试、业务边界、隔离环境与 CI 评估方案",
+        "不生成 pom.xml、JUnit、Spring 注解或 Java 版本配置，不建议无依据的统一框架迁移",
+        "指出未覆盖的专项接入/实测范围；通用测试设计可分析，不以脚本未识别 Python 当没有测试",
+        "只读交付有依据的复用、缺口和验证命令，不能声称 Python 全面接入已验证"
+      ]
     }
   ],
   "execution": {
