@@ -175,6 +175,7 @@ def checkpoint(root, identity, entry, expected_revision=None):
         manifest_path = relative_file(root, name, must_exist=True)
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
         result = collect(root, manifest)
+        policy_mismatch = any(run.get('policy') != registry['policy'] for run in manifest['runs'])
         code_evidence = [run['evidence_after'] for run in manifest['runs'] if 'evidence_after' in run]
         for observed in code_evidence:
             if not isinstance(observed, dict):
@@ -184,7 +185,8 @@ def checkpoint(root, identity, entry, expected_revision=None):
         reports = {p: {'sha256': digest(relative_file(root, p, must_exist=True)),
                        'mtime_ns': relative_file(root, p).stat().st_mtime_ns} for p in report_paths}
         execution.append({'manifest': name, 'sha256': digest(manifest_path),
-                          'status': 'NOT_VERIFIED' if observed_changes else result['status'],
+                          'status': 'NOT_VERIFIED' if observed_changes or policy_mismatch else result['status'],
+                          'policy_mismatch': policy_mismatch,
                           'counts': result['counts'], 'reports': reports, 'code_evidence': code_evidence,
                           'kinds': [run['kind'] for run in result['runs']],
                           'executed_tests': sum(g['counts']['tests'] - g['counts']['skipped']
@@ -192,6 +194,8 @@ def checkpoint(root, identity, entry, expected_revision=None):
     if verified == 'PASS' and (not evidence or not execution or
                                any(r['status'] != 'EVIDENCE_PASS' for r in execution)):
         raise ValueError('PASS requires code evidence and valid execution manifests')
+    if verified == 'PASS' and any(r['policy_mismatch'] for r in execution):
+        raise ValueError('PASS requires execution under the current testing policy')
     if verified == 'PASS' and kind == 'test' and not any(
             r['executed_tests'] > 0 for r in execution):
         raise ValueError('test PASS requires executed test cases; compilation is build evidence only')

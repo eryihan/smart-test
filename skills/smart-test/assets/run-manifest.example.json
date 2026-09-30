@@ -12,6 +12,7 @@
       "started_at": "2026-01-01T00:00:00+00:00",
       "finished_at": "2026-01-01T00:00:30+00:00",
       "exit_code": 0,
+      "policy": {"path": "docs/testing.md", "sha256": "Replace with the policy fingerprint observed at execution"},
       "reports": [
         {"pattern": "target/surefire-reports/TEST-*.xml", "required": true, "min_tests": 1, "allow_skipped": false},
         {"pattern": "target/failsafe-reports/TEST-*.xml", "required": true, "min_tests": 1, "allow_skipped": false}

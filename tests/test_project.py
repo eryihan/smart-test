@@ -8,7 +8,7 @@ import unittest
 
 from test_helpers import Workspace, SCRIPTS
 sys.path.insert(0, str(SCRIPTS))
-from project import adopt, begin, checkpoint, detach, record_path, status, writing
+from project import adopt, begin, checkpoint, detach, policy, record_path, status, writing
 
 
 class ProjectTests(Workspace):
@@ -33,6 +33,7 @@ class ProjectTests(Workspace):
             'id': 'unit', 'argv': ['native-test', 'Order'], 'started_at': at(stamp - 1),
             'finished_at': at(stamp + 1), 'exit_code': 1 if failed else 0,
             'reports': [{'pattern': 'target/reports/TEST-Order.xml', 'required': True}],
+            'policy': policy(self.root, 'docs/testing.md'),
         }]}
         self.put('.smart-test/runs/unit/manifest.json', json.dumps(data))
         return '.smart-test/runs/unit/manifest.json', report
@@ -294,7 +295,8 @@ class ProjectTests(Workspace):
         manifest = '.smart-test/runs/compile/manifest.json'
         self.put(manifest, json.dumps({'schema_version': 1, 'required_run_ids': ['compile'], 'runs': [{
             'id': 'compile', 'kind': 'compile', 'argv': ['native-build', 'test-compile'],
-            'started_at': stamp, 'finished_at': stamp, 'exit_code': 0, 'reports': []}]}))
+            'started_at': stamp, 'finished_at': stamp, 'exit_code': 0, 'reports': [],
+            'policy': policy(self.root, 'docs/testing.md')}]}))
         entry = dict(stage='verification', status='PARTIAL', summary='Compilation succeeded; tests not run',
                      verification='PASS', evidence_paths=['src/Order.java'], run_manifests=[manifest])
         with self.assertRaises(ValueError):

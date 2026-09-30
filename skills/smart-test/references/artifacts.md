@@ -80,7 +80,7 @@ JSON 使用 UTF-8。只保存脱敏摘要和必要报告，不保存凭证或生
 
 结构示例见 [run-manifest.example.json](../assets/run-manifest.example.json)。真实记录使用 `schema_version: 1`，移除 `example_only`；包含非空 `runs` 和 `required_run_ids`。Agent 还记录实际工作目录、Git HEAD、工作树指纹与执行环境，并核对它们对应本次代码。这些元数据由 Agent 核验。JUnit 原生命令优先用 execute.py 自动采集，调用方式见 verification.md；不要求用户手工制作 manifest。
 
-- 每个 run：唯一 `id`、实际脱敏 `argv`、带时区的 `started_at`/`finished_at`、整数 `exit_code`、报告分组。`kind` 默认 test；compile/build 不需 JUnit 时设置 `requires_test_report: false`，编译成功仍不能替代必需测试。
+- 每个 run：唯一 `id`、实际脱敏 `argv`、带时区的 `started_at`/`finished_at`、整数 `exit_code`、报告分组和执行时生效规范的 `policy`（path/sha256）。`kind` 默认 test；compile/build 不需 JUnit 时设置 `requires_test_report: false`，编译成功仍不能替代必需测试。登记 `PASS` 时，所有被引用的运行都必须在当前规范指纹下执行；规范复核后旧运行只能保留为历史证据或 `NOT_VERIFIED`。
 - 每个 reports group：仓库内精确 `pattern`、`required`、正整数 `min_tests`（默认 1）、`allow_skipped`（默认 false）；需要特定测试时声明 XML 中的 `classname#name` 为 `expected_test_ids`。必需套件按模块分组，避免一个模块掩盖另一个未执行。
 - `blockers` 记录尚未解决的事项；存在 blocker 时汇总结果不得为 PASS。未执行的命令只报告 NOT_RUN/BLOCKED，不填写预计退出码或伪造完成记录。
 

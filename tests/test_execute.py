@@ -72,17 +72,6 @@ class ExecuteTests(Workspace):
         self.assertFalse((self.root / '.smart-test/project.lock').exists())
         self.assertFalse((self.root / '.smart-test/execution.lock').exists())
 
-    def test_report_identity_constraints_are_carried_into_manifest(self):
-        spec = self.spec()
-        spec['reports'] = [{'pattern': 'target/reports/TEST-*.xml', 'expected_test_ids': ['Order#boundary'],
-                            'min_tests': 1, 'allow_skipped': False}]
-        result = execute(self.root, self.record['id'], spec)
-        manifest = json.loads((self.root / result['manifest']).read_text())
-        group = manifest['runs'][0]['reports'][0]
-        self.assertEqual(group['expected_test_ids'], ['Order#boundary'])
-        self.assertEqual(group['min_tests'], 1)
-        self.assertEqual(result['evidence_status'], 'NOT_VERIFIED')
-
     def test_source_changed_during_run_blocks_evidence_pass(self):
         spec = self.spec('from pathlib import Path; Path("src/order.py").write_text("amount=2")', kind='compile')
         spec['reports'] = []
@@ -132,6 +121,28 @@ class ExecuteTests(Workspace):
         self.assertEqual(result['termination'], 'START_FAILED')
         self.assertEqual(run['exit_code_source'], 'execution_helper')
         self.assertEqual(status(self.root)['records'][0]['current_verification'], 'FAILED')
+
+    def test_report_identity_constraints_are_carried_into_manifest(self):
+        spec = self.spec()
+        spec['reports'] = [{'pattern': 'target/reports/TEST-*.xml', 'expected_test_ids': ['Order#boundary'],
+                            'min_tests': 1, 'allow_skipped': False}]
+        result = execute(self.root, self.record['id'], spec)
+        manifest = json.loads((self.root / result['manifest']).read_text())
+        group = manifest['runs'][0]['reports'][0]
+        self.assertEqual(group['expected_test_ids'], ['Order#boundary'])
+        self.assertEqual(group['min_tests'], 1)
+        self.assertEqual(result['evidence_status'], 'NOT_VERIFIED')
+
+    def test_old_run_cannot_be_promoted_to_pass_after_policy_review(self):
+        result = execute(self.root, self.record['id'], self.spec())
+        self.put('docs/testing.md', '# Testing\nIntegration is now required.\n')
+        from project import adopt
+        adopt(self.root, 'docs/testing.md', 'Reviewed integration requirement')
+        with self.assertRaises(ValueError):
+            checkpoint(self.root, self.record['id'], dict(
+                stage='verification', status='COMPLETED', summary='Old run under old policy',
+                verification='PASS', evidence_paths=['src/order.py', 'docs/testing.md'],
+                run_manifests=[result['manifest']]))
 
 
     def test_relabeling_an_old_run_cannot_pass_after_source_changes(self):
