@@ -325,5 +325,15 @@ class FeedbackExportTests(unittest.TestCase):
         self.assertEqual(metadata['host'], 'other')
         self.assertEqual(metadata['workflow'], 'update')
 
+    def test_distinct_coverage_thresholds_export_only_known_numeric_fields(self):
+        self.put('.smart-test/test-policy.json', {'coverage': {
+            'mode': 'BOTH', 'threshold': {'overall': 75, 'incremental': 80, 'SECRET_KEY': 'SECRET_VALUE'}}})
+        self.export()
+        summary = self.read('test-policy.json')['summary']['coverage']
+        self.assertEqual(summary['threshold'], {'overall': 75, 'incremental': 80})
+        self.assertNotIn('SECRET', (self.output / 'test-policy.json').read_text())
+        for threshold in ({'overall': True, 'incremental': float('nan')}, {'SECRET_KEY': 80}):
+            self.assertIsNone(exporter.coverage({'threshold': threshold})['threshold'])
+
 if __name__ == '__main__':
     unittest.main()

@@ -182,14 +182,25 @@ def _validate_policy(data, artifact, issues):
         _issue(issues, artifact, 'COVERAGE_METRIC_INVALID')
     if 'threshold' in coverage:
         threshold = coverage['threshold']
-        if (threshold is not None and
-                (isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or
-                 not 0 <= threshold <= 100)):
+        def percentage(value):
+            return (not isinstance(value, bool) and isinstance(value, (int, float))
+                    and 0 <= value <= 100)
+        if isinstance(threshold, dict):
+            mode = coverage.get('mode')
+            requirements = {'OVERALL': {'overall'}, 'INCREMENTAL': {'incremental'},
+                            'BOTH': {'overall', 'incremental'}}
+            needed = requirements.get(mode, set()) if isinstance(mode, str) else set()
+            if (not threshold or set(threshold) - {'overall', 'incremental'} or
+                    not needed <= set(threshold) or not all(percentage(v) for v in threshold.values())):
+                _issue(issues, artifact, 'COVERAGE_THRESHOLD_INVALID')
+        elif threshold is not None and not percentage(threshold):
             _issue(issues, artifact, 'COVERAGE_THRESHOLD_INVALID')
     if 'scope' in coverage and not isinstance(coverage['scope'], dict):
         _issue(issues, artifact, 'COVERAGE_SCOPE_INVALID')
     if 'baseline' in coverage and coverage['baseline'] is not None and not _text(coverage['baseline']):
         _issue(issues, artifact, 'COVERAGE_BASELINE_INVALID')
+    if isinstance(coverage.get('mode'), str) and coverage['mode'] in {'INCREMENTAL', 'BOTH'} and not _text(coverage.get('baseline')):
+        _issue(issues, artifact, 'COVERAGE_BASELINE_REQUIRED')
 
 
 def _validate_status(data, artifact, issues):

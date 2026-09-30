@@ -93,6 +93,71 @@ class InspectorTests(Workspace):
         staged = inspect(self.root, staged=True)['change']['files']
         self.assertEqual([f['path'] for f in staged], ['A.java'])
 
+    def test_mapper_xml_is_fingerprinted_and_marks_sql_risk(self):
+        self.init_git()
+        name = 'src/main/resources/mapper/Orders.xml'
+        self.put(name, '<mapper namespace="demo.Orders"><select id="find">SELECT id FROM orders</select></mapper>')
+        self.put('src/main/resources/unrelated.xml', '<settings/>')
+        self.commit()
+        before = inspect(self.root)
+        self.put(name, '<mapper namespace="demo.Orders"><select id="find">SELECT id FROM orders WHERE tenant_id = #{tenant}</select></mapper>')
+        after = inspect(self.root)
+        self.assertIn(name, before['fingerprints'])
+        self.assertNotEqual(before['fingerprints'][name], after['fingerprints'][name])
+        self.assertIn({'path': name, 'indicators': ['sql-mapping']}, after['risk_indicators'])
+        self.assertIn(name, after['signals']['mybatis'])
+        self.assertNotIn('src/main/resources/unrelated.xml', after['fingerprints'])
+
+    def test_gradle_literal_consumers_are_transitive(self):
+        for dsl in ('groovy', 'kotlin'):
+            with self.subTest(dsl=dsl):
+                root = self.root / dsl
+                root.mkdir()
+                suffix = '.kts' if dsl == 'kotlin' else ''
+                self.put(dsl + '/settings.gradle' + suffix, 'include("common", "service", "api")')
+                for module, provider in [('common', None), ('service', 'common'), ('api', 'service')]:
+                    dependency = '' if not provider else ('dependencies { implementation(project(path = ":' + provider + '")) }' if dsl == 'kotlin' else 'dependencies { implementation project(path: ":' + provider + '") }')
+                    self.put(dsl + '/' + module + '/build.gradle' + suffix, dependency)
+                subprocess.check_call(['git', 'init', '-q', str(root)])
+                subprocess.check_call(['git', '-C', str(root), 'add', '.'])
+                subprocess.check_call(['git', '-C', str(root), '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture'])
+                self.put(dsl + '/common/src/main/java/Common.java', 'class Common {}')
+                result = inspect(root)
+                self.assertEqual(result['change']['impacted_modules_hint'], ['api', 'common', 'service'])
+                self.assertEqual(result['change']['confidence'], 'LOW')
+
+    def test_gradle_project_directory_override_and_unresolved_reference(self):
+        self.init_git()
+        self.put('settings.gradle', "include ':shared', ':api'\nproject(':shared').projectDir = file('libs/core')")
+        self.put('libs/core/build.gradle', '')
+        self.put('api/build.gradle', "dependencies { implementation project(':shared'); implementation project(':unknown') }")
+        self.commit()
+        self.put('libs/core/src/main/java/Core.java', 'class Core {}')
+        result = inspect(self.root)
+        self.assertEqual(result['change']['impacted_modules_hint'], ['api', 'libs/core'])
+        self.assertEqual(result['module_edges'], [{'consumer': 'api', 'provider': 'libs/core', 'confidence': 'MEDIUM', 'source': 'api/build.gradle'}])
+        self.assertTrue(any('Unresolved Gradle project' in warning for warning in result['warnings']))
+
+    def test_gradle_dynamic_directory_does_not_guess_an_edge(self):
+        self.put('settings.gradle', "include ':shared', ':api'\nproject(':shared').projectDir = findSharedDirectory()")
+        self.put('shared/build.gradle', '')
+        self.put('api/build.gradle', "dependencies { implementation project(':shared') }")
+        result = inspect(self.root)
+        self.assertEqual(result['module_edges'], [])
+        self.assertTrue(any('Gradle projectDir' in warning for warning in result['warnings']))
+
+    def test_gradle_consumer_of_root_project_and_comment_only_mapper(self):
+        self.init_git()
+        self.put('settings.gradle', "include ':api'")
+        self.put('build.gradle', '')
+        self.put('api/build.gradle', "dependencies { implementation project(':') }")
+        self.put('src/main/resources/settings.xml', '<settings><!-- <mapper namespace="demo"/> --></settings>')
+        self.commit()
+        self.put('src/main/java/Root.java', 'class Root {}')
+        result = inspect(self.root)
+        self.assertEqual(result['change']['impacted_modules_hint'], ['.', 'api'])
+        self.assertNotIn('src/main/resources/settings.xml', result['fingerprints'])
+
     def test_base_uses_merge_base_and_includes_worktree(self):
         self.init_git()
         self.put('A.java', 'class A {}')
@@ -600,7 +665,8 @@ class ArtifactTests(Workspace):
     def test_policy_allows_optional_fields_and_coverage_boundaries(self):
         valid = [{'required_suites': ['unit', {'suite': 'integration'}]},
                  {'production_code_modify': False}, {'production_change_boundary': {}}]
-        valid.extend({'coverage': {'mode': mode, 'metric': metric, 'threshold': threshold}}
+        valid.extend({'coverage': {'mode': mode, 'metric': metric, 'threshold': threshold,
+                                  **({'baseline': 'origin/main'} if mode in ('INCREMENTAL', 'BOTH') else {})}}
                      for mode in ('UNSPECIFIED', 'REPORT_ONLY', 'OVERALL', 'INCREMENTAL', 'BOTH')
                      for metric in ('LINE', 'BRANCH', 'INSTRUCTION', 'METHOD', 'CLASS')
                      for threshold in (None, 0, 80.5, 100))
@@ -608,6 +674,28 @@ class ArtifactTests(Workspace):
             with self.subTest(policy=policy):
                 self.put_json('test-policy.json', policy)
                 self.assertEqual(validate(self.root, ['test-policy.json'])['status'], 'VALID')
+
+    def test_incremental_coverage_requires_an_explicit_baseline(self):
+        for mode in ('INCREMENTAL', 'BOTH'):
+            for baseline in (None, '', ' '):
+                with self.subTest(mode=mode, baseline=baseline):
+                    self.put_json('test-policy.json', {'coverage': {'mode': mode, 'threshold': 80, 'baseline': baseline}})
+                    result = validate(self.root, ['test-policy.json'])
+                    self.assertEqual(result['status'], 'INVALID')
+                    self.assertIn('COVERAGE_BASELINE_REQUIRED', {i['type'] for i in result['issues']})
+            self.put_json('test-policy.json', {'coverage': {'mode': mode, 'threshold': 80}})
+            self.assertEqual(validate(self.root, ['test-policy.json'])['status'], 'INVALID')
+
+    def test_coverage_supports_distinct_thresholds_without_accepting_bad_values(self):
+        coverage = {'mode': 'BOTH', 'baseline': 'origin/main', 'threshold': {'overall': 75, 'incremental': 80}}
+        self.put_json('test-policy.json', {'coverage': coverage})
+        self.assertEqual(validate(self.root, ['test-policy.json'])['status'], 'VALID')
+        for threshold in ({}, {'overall': 75}, {'overall': 75, 'incremental': True},
+                          {'overall': -1, 'incremental': 80}, {'overall': 75, 'incremental': float('nan')},
+                          {'overall': 75, 'incremental': 80, 'other': 70}):
+            with self.subTest(threshold=threshold):
+                self.put_json('test-policy.json', {'coverage': {**coverage, 'threshold': threshold}})
+                self.assertEqual(validate(self.root, ['test-policy.json'])['status'], 'INVALID')
 
     def test_all_artifacts_require_object_roots(self):
         for name in ('business-oracle.json', 'test-plan.json', 'effective-context.json',

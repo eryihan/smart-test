@@ -127,6 +127,62 @@ def pom_info(path):
     }
 
 
+def gradle_edges(root, modules, settings, warnings):
+    """Resolve literal root-settings paths only; dynamic Gradle stays unresolved."""
+    consumers = [m for m in modules if m.get('project_refs')]
+    if not consumers:
+        return []
+    if len(settings) != 1:
+        warnings.append('Unresolved Gradle project graph: one root settings file is required for literal hints.')
+        return []
+    settings_path, text = settings[0]
+    text = re.sub(r'/\*.*?\*/|//[^\n]*', '', text, flags=re.S)
+    paths = {':': '.'}
+    for match in re.finditer(r'(?m)^\s*include\b\s*(?:\(([^)]*)\)|([^\n]+))', text):
+        expression = match.group(1) if match.group(1) is not None else match.group(2)
+        literals = re.findall(r'[\'"]([^\'"]+)[\'"]', expression)
+        remainder = re.sub(r'[\'"][^\'"]+[\'"]|[\s,;]', '', expression)
+        if remainder or not literals:
+            warnings.append('Unresolved Gradle include expression: ' + settings_path)
+            continue
+        for project in literals:
+            identity = ':' + project.lstrip(':')
+            paths[identity] = project.lstrip(':').replace(':', '/')
+    overrides = list(re.finditer(
+        r'project\s*\(\s*[\'"](:[^\'"]+)[\'"]\s*\)\s*\.projectDir\s*=\s*file\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)', text))
+    if len(re.findall(r'\.projectDir\b', text)) != len(overrides):
+        warnings.append('Unresolved Gradle projectDir expression: ' + settings_path)
+        return []  # Do not attach a default-directory edge when a remap is unknown.
+    for match in overrides:
+        if match.group(1) in paths:
+            paths[match.group(1)] = match.group(2)
+    by_directory = {}
+    for module in modules:
+        if module['tool'] == 'gradle':
+            by_directory.setdefault(module['directory'], []).append(module)
+    providers = {}
+    for identity, directory in paths.items():
+        try:
+            if '$' in directory:
+                raise ValueError('dynamic path')
+            path = root if directory == '.' else relative_file(root, directory)
+            candidates = by_directory.get(str(path.relative_to(root)), [])
+            if len(candidates) == 1:
+                providers[identity] = candidates[0]
+        except ValueError:
+            warnings.append('Unresolved Gradle project directory: ' + identity)
+    edges = []
+    for consumer in consumers:
+        for reference in consumer['project_refs']:
+            provider = providers.get(reference)
+            if provider is None:
+                warnings.append('Unresolved Gradle project ' + reference + ': ' + consumer['path'])
+            elif provider['directory'] != consumer['directory']:
+                edges.append({'consumer': consumer['directory'], 'provider': provider['directory'],
+                              'confidence': 'MEDIUM', 'source': consumer['path']})
+    return edges
+
+
 def inspect(root, staged=False, base=None, limit=20000):
     root = Path(root).resolve()
     names, is_git, warnings = inventory(root)
@@ -136,6 +192,7 @@ def inspect(root, staged=False, base=None, limit=20000):
         names = names[:limit]
     found = {name: [] for name in SIGNALS}
     fingerprints, builds, modules, sources, tests, docs, ci, risks = {}, [], [], [], [], [], [], []
+    gradle_settings = []
     for name in names:
         path = root / name
         is_build = path.name in BUILD_NAMES
@@ -146,19 +203,26 @@ def inspect(root, staged=False, base=None, limit=20000):
                         or 'db/changelog/' in name)
         is_config = path.name.startswith('application') and path.suffix in {'.yml', '.yaml', '.properties'}
         is_ci = name.startswith('.github/workflows/') or path.name in {'.gitlab-ci.yml', 'Jenkinsfile'}
+        is_xml = path.suffix.lower() == '.xml'
         if is_java:
             (tests if '/src/test/' in '/' + name or '/src/integrationTest/' in '/' + name else sources).append(name)
         if is_doc:
             docs.append(name)
         if is_ci:
             ci.append(name)
-        if not (is_build or is_java or is_doc or is_migration or is_config or is_ci):
+        selected = is_build or is_java or is_doc or is_migration or is_config or is_ci
+        if not (selected or is_xml):
             continue
         if path.stat().st_size > 2_000_000:
             warnings.append('Skipped large file: ' + name)
             continue
-        fingerprints[name] = digest(path)
         content = path.read_text(encoding='utf-8', errors='replace')
+        is_mapper = is_xml and bool(re.search(r'<mapper(?:\s|>)', re.sub(r'<!--.*?-->', '', content, flags=re.S)))
+        if not selected and not is_mapper:
+            continue
+        fingerprints[name] = digest(path)
+        if is_mapper:
+            found['mybatis'].append(name)
         if is_build or is_java or is_config:
             for signal, pattern in SIGNALS.items():
                 if re.search(pattern, content, re.I):
@@ -175,10 +239,14 @@ def inspect(root, staged=False, base=None, limit=20000):
             elif path.name in {'build.gradle', 'build.gradle.kts'}:
                 modules.append({'path': name, 'directory': str(path.parent.relative_to(root)),
                                 'tool': 'gradle', 'project_refs': sorted(set(re.findall(
-                                    r'project\s*\(\s*[\'"](:[^\'"]+)', content)))})
+                                    r'project\s*\(\s*(?:path\s*[:=]\s*)?[\'"](:[^\'"]*)', content)))})
+            elif name in {'settings.gradle', 'settings.gradle.kts'}:
+                gradle_settings.append((name, content))
         indicators = []
         if is_migration:
             indicators.append('database-migration')
+        if is_mapper:
+            indicators.append('sql-mapping')
         if is_java and name in sources:
             for label, pattern in {'transaction': r'@Transactional', 'authorization': r'@PreAuthorize|@Secured',
                                    'concurrency': r'synchronized|ReentrantLock|compareAndSet',
@@ -194,6 +262,7 @@ def inspect(root, staged=False, base=None, limit=20000):
                 if consumer is not provider and dep['group'] and dep['group'] == provider.get('group') and dep['artifact'] == provider.get('artifact'):
                     edges.append({'consumer': consumer['directory'], 'provider': provider['directory'],
                                   'confidence': 'MEDIUM', 'source': consumer['path']})
+    edges.extend(gradle_edges(root, modules, gradle_settings, warnings))
     diff = changes(root, is_git, staged, base)
     dirs = sorted((m['directory'] for m in modules), key=len, reverse=True)
     impacted = set()
@@ -221,6 +290,7 @@ def inspect(root, staged=False, base=None, limit=20000):
             'incomplete': truncated or bool(warnings), 'warnings': warnings,
             'limitations': ['Static candidates, not verified runtime dependencies or business truth.',
                            'Maven inheritance/profiles/properties and Gradle code are not evaluated.',
+                           'Gradle edges only resolve literal root-settings includes and file projectDir overrides; other layouts require manual review.',
                            'No complete symbol/call graph; Agent must inspect diff and broaden tests.',
                            'No source/config values or secret-bearing log content are emitted.']}
 

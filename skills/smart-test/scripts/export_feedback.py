@@ -68,10 +68,17 @@ def read_json(root, name):
 
 def coverage(data):
     data = obj(data)
+    threshold = data.get('threshold')
+    if isinstance(threshold, dict):
+        threshold = {key: number(threshold[key], high=100)
+                     for key in ('overall', 'incremental') if key in threshold}
+        threshold = {key: value for key, value in threshold.items() if value is not None} or None
+    else:
+        threshold = number(threshold, high=100)
     return {
         'mode': enum(data.get('mode'), {'UNSPECIFIED', 'REPORT_ONLY', 'OVERALL', 'INCREMENTAL', 'BOTH'}),
         'metric': enum(data.get('metric'), {'LINE', 'BRANCH', 'INSTRUCTION', 'METHOD', 'CLASS'}),
-        'threshold': number(data.get('threshold'), high=100),
+        'threshold': threshold,
         'baseline_present': present(data.get('baseline')),
         'scope_type': enum(obj(data.get('scope')).get('type'), {'REPOSITORY', 'MODULE', 'PATH'}),
     }
