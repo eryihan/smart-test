@@ -5,7 +5,7 @@ exporter from silently drifting apart. The values are intentionally plain
 Python objects so the skill remains Python 3.9+ and dependency-free.
 """
 
-WORKFLOWS = ('help', 'init', 'scan', 'changes', 'check', 'pipeline', 'update')
+WORKFLOWS = ('help', 'init', 'scan', 'changes', 'check', 'pipeline', 'status', 'update', 'uninstall')
 
 HOSTS = frozenset({'codex', 'claude-code', 'other', 'unknown'})
 
