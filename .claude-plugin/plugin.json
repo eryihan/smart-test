@@ -1,7 +1,7 @@
 {
   "name": "smart-test",
-  "version": "0.1.1",
-  "description": "提供帮助，搭建 Java/Spring Boot 测试体系，扫描测试缺口，检查当前改动，并生成已验证的 CI 候选方案。",
+  "version": "0.1.3",
+  "description": "按项目实际搭建后端测试，评估缺口、补测试、执行诊断与验证 CI；当前专项实现为 Java/Spring，提供 skill 更新入口。",
   "license": "Apache-2.0",
   "author": {
     "name": "eryihan"

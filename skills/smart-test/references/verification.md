@@ -2,29 +2,35 @@
 
 ## 执行前
 
-读取本次执行范围、仓库已有测试约定、环境证据和生产修改边界。已有适用 policy/plan 要继续遵守；没有持久产物时直接从用户任务、构建配置和风险确定必需套件，不要求先 init 或创建账本。先确认命令来自真实 POM/Gradle task/CI，不凭猜测添加参数。运行仓库 wrapper 或构建文件会执行仓库代码；先按宿主规则检查可信度、权限、网络和成本。
+读取本次执行范围、仓库已有测试约定、环境证据和生产修改边界。已有适用 policy/plan 要继续遵守；没有持久产物时直接从用户任务、构建配置和风险确定必需套件，不要求先 init 或创建账本。使用实际构建配置、task 或 CI 中的命令，核对参数来源。运行仓库 wrapper 或构建文件会执行仓库代码；先按宿主规则检查可信度、权限、网络和成本。
 
-只计划/dry-run 不执行构建。网络/Docker 被禁止时不尝试绕过；集成环境不可用时继续可做的验证并保留 BLOCKED。只跑 Unit 时不要称 full verification PASS。
+只计划/dry-run 不执行构建。网络/Docker 被禁止时不尝试绕过；集成环境不可用时继续可做的验证并保留 BLOCKED。仅完成 Unit 时报告对应范围结果。
+
+## 基线与本次回归
+
+优先读取同范围、同构建配置的可信已有运行或 CI 结果；过期或不同环境的记录只作线索。基线不明时，在修改前运行相关已有测试，无需重复全仓验证。
+
+遇到失败，分清“旧版本已有失败”“本次修改后才出现”“没有足够基线”。需要旧版本对比时使用经授权的隔离 checkout，保留原工作区修改，不自动 stash/reset。比较相同测试、配置、依赖与环境；只因测试名或异常文本相同，不能断定同一根因。
+
+既有失败可以限定归因，但仍影响相应完整通过结论。新增失败也不自动是产品缺陷：先核对 Oracle、fixture、框架和真实路径。没有可比基线时记录 UNKNOWN，继续定位并验证独立部分。
 
 ## 执行与证据
 
-按需执行编译 → Unit/Slice → 必需 Integration → 适用 Contract → Critical flow → 质量检查。Maven `verify` 已包含前面的阶段，无需为形式重复执行。
+按需执行编译 → Unit/Slice → 必需 Integration → 适用 Contract → Critical flow → 质量检查。Maven `verify` 包含前序阶段，避免重复执行。
 
-每次运行在 runs/<run-id>/manifest.json 保存：实际 argv（脱敏）、工作目录、Git HEAD 与工作树指纹、开始/结束时刻（含时区）、退出码、执行环境、报告路径和必需测试集合。命令没有实际执行时在结论中记 NOT_RUN/BLOCKED，不创建伪造的完成 manifest，不填预计退出码或测试数量。能从工具返回直接获取的时间、退出码和命令优先直接记录，不能凭记忆估计。运行证据是默认持久产物，不要求同时生成 policy/plan/status。
+每次实际运行按 [运行 manifest](artifacts.md#运行-manifest) 保存记录，命令、时间与退出码优先从工具返回直接获取。执行前后核对 Git HEAD、工作树和测试配置；报告与当前版本不一致时不能复用通过结论。运行证据是默认持久产物，不要求同时生成 policy/plan/status。
 
 若多条命令会覆盖同一路径报告，在每次结束时立即复制 XML 到 `.smart-test/runs/<run-id>/...` 快照，再执行下一条。保留原始 mtime，以便判定其属于该次执行。不要删除用户已有报告；可在允许范围内清理本轮生成目录或选用全新报告路径。报告中的 stdout/stderr/properties 可能包含秘密，不复制到可共享报告；敏感 XML 只供本地检查，分享前脱敏。
 
-使用 [run-manifest.example.json](../assets/run-manifest.example.json) 的结构记录真实执行。示例日期/命令不代表验证记录，必须替换；完成真实记录后移除 `example_only` 标志，脚本拒绝将示例作为执行证据。每个 run 可声明 `kind` 和 `requires_test_report`；compile-only run 设置 `kind: compile`、`requires_test_report: false` 后只检查退出码，不要求 JUnit 报告。每个 reports group 使用尽量精确的 glob；不要用全仓 `**/*.xml` 混入旧报告。`required_run_ids` 列出计划要求的执行项。
-
-必需套件的每个模块单独分组，否则 A 模块报告可能掩盖 B 模块没有执行。如果新计划要求特定测试，列 `expected_test_ids`（XML 中的 `classname#name`）。report group 的 `required: true`、`min_tests >= 1`，默认不允许 skip；确有已授权的无关 skip 才 `allow_skipped: true`，仍不得把被 skip 的测试算作 expected test。
+报告分组须覆盖每个必需模块和套件；有特定测试要求时检查其身份。不要用全仓 `**/*.xml` 混入旧报告。编译证据与测试证据分别解释；已授权的无关 skip 也不能算作执行了必需测试。
 
 ```text
 python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifest.json>
 ```
 
-退出码 0：`EVIDENCE_PASS` 或 `VALID`，只表示声明的执行/结构证据通过；1：`NOT_VERIFIED` 或 `INVALID`，报告缺失、陈旧、失败、skip、零测试、结构不完整或 blockers；2：输入错误。脚本不执行测试、不验证人填写的 manifest 是否真实，也不理解计划风险是否足够，由 Agent 核实。
+退出码 0：`EVIDENCE_PASS` 或 `VALID`，表示声明的执行/结构证据通过；1：`NOT_VERIFIED` 或 `INVALID`，报告缺失、陈旧、失败、skip、零测试、结构不完整或 blockers；2：输入错误。脚本检查报告，不运行测试；manifest 真实性与风险覆盖由 Agent 核验。
 
-报告只接收 JUnit XML（Surefire/Failsafe/Gradle 等常用格式）。Contract/PIT/coverage 的专用报告由 Agent 单独读取并关联命令；不可伪装成 JUnit 结果。没有 JUnit XML 的仓库可用框架原生报告，但明确证据来源，不能编 XML 让脚本通过。
+报告只接收 JUnit XML（Surefire/Failsafe/Gradle 等常用格式）。Contract/PIT/coverage 的专用报告由 Agent 单独读取并关联命令；不得转换为虚构的 JUnit 结果。没有 JUnit XML 的仓库可用框架原生报告，但明确证据来源，不能编 XML 让脚本通过。
 
 脚本拒绝在运行时间窗口之外的报告、重复路径、只有 suite 声称测试数却没有 testcase 的不完整报告、非法 XML。它只输出计数和结构问题，不输出原始失败日志或命令参数。
 
@@ -32,17 +38,40 @@ python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifes
 
 覆盖率按 [coverage.md](coverage.md) 解析。未指定的新门禁不新增阈值，但仓库已有门禁仍然适用；`REPORT_ONLY` 只展示结果，不把报告转换为阻断条件。
 
-通常直接从本次 run 与质量门生成结论。只有需要恢复或审计时才保存 status.json；消费或生成已知 JSON 时按 [artifacts.md](artifacts.md) 校验实际依赖，不为 check 补齐整套治理文件。结构问题阻断依赖该产物的结论，不妨碍说明已观察到的执行结果和继续独立验证。
+按本次 run 与质量门生成结论。只有需要恢复或审计时才保存 status.json；消费或生成已知 JSON 时按 [artifacts.md](artifacts.md) 校验实际依赖，不为 check 补齐整套治理文件。结构问题阻断依赖该产物的结论，不妨碍说明已观察到的执行结果和继续独立验证。
 
-只有以下全满足才将 verification 标 PASS：
+verification 标 PASS 须同时满足：
 
 - 必需命令实际执行且 exit 0，必需测试真实被发现并执行；未因 skip/profile/task 配错漏跑。
 - 计划风险对应的断言经过复核，Oracle 无未解决歧义；无未解决 PRODUCT_DEFECT / ENVIRONMENT_DEFECT。
-- 既有 coverage/changed coverage/critical module/mutation policy 按适用范围通过；未要求的项记 NOT_APPLICABLE，不捏造百分比。
+- 既有 coverage/changed coverage/critical module/mutation policy 按适用范围通过；未要求的项记 NOT_APPLICABLE，不得填写估计百分比。
 - 本轮测试不把异步 timing、随机性、共享数据或顺序依赖当作确定行为；不存在未处理的 flaky。
 - 记录实际验证版本；验证后又改了代码、依赖、环境或测试配置，受影响结果 STALE。
 
 `--fast` 只在策略允许的范围缩小；必需 integration 未跑只能说 fast/unit scope 通过。`--full` 依据模块图和关键风险扩大，不自动引入 PIT、全量 E2E 或性能压测。
+
+## 阶段结果
+
+按实际范围分别解释分析、实施和验证，按恢复或审计需要保存 status；JSON 格式见 artifacts。
+
+| 状态 | 含义 |
+|---|---|
+| NOT_STARTED / NOT_RUN | 工作未开始 / 命令或测试未实际执行 |
+| PROPOSED / READY | 方案待处理 / 该阶段输入齐备；验证结果与执行授权另行核对 |
+| PARTIAL | 已完成明确子范围，仍有必需部分未完成；列出各部分结果 |
+| BLOCKED | 某阶段受具体前提限制，标明受影响动作与解除条件 |
+| FAILED | 实际动作失败；失败类别需进一步归因 |
+| PASS | 相应范围的必需验证与质量门均有有效证据 |
+| STALE / NOT_VERIFIED | 原证据受变化影响 / 现有证据不足以判断通过 |
+| UNKNOWN / NOT_APPLICABLE | 事实无法确认 / 按规则不适用；后者必须说明原因 |
+
+`EVIDENCE_PASS`、`VALID` 是辅助工具的局部结果，不能直接当项目 PASS。治理账本的 EFFECTIVE/INVALIDATED 表示决策可用性。
+
+## 受阻工作
+
+业务预期未知或冲突时，可以分析和交付缺口，暂停依赖该预期的断言与修复。仅缺运行环境时，若依据、代码、测试 API 与授权已足够，可实现测试并执行独立的编译/Unit；必需 integration 仍记 BLOCKED/NOT_RUN。缺实现所必需的 API 或版本信息时先补信息，不猜配置。
+
+按阶段与风险记录阻塞，仅暂停依赖该前提的动作；保留阻塞项，继续独立工作。结构校验决定输入是否可用，Agent 判定受影响动作与解除条件。
 
 ## Failure Triage
 
@@ -57,6 +86,14 @@ python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifes
 
 无法归因时先记 UNCLASSIFIED 和当前假设，不把所有 AssertionError 都归产品缺陷。每条记录 failure、classification、evidence、likely cause、safe action、manual action、状态。
 
-有限重试只用于定位，默认至多一次且在相同代码/环境；记录全部尝试，不用最后成功覆盖先前失败。继续失败或无法解释的间歇通过要停下归因；不无限重试、不增加 sleep 来掩盖问题。修复后再运行不是诊断重试，记录补丁和新验证版本。
+从首个有因果意义的错误定位，区分根因与级联失败：
 
-最终报告（对话或按需保存的 verification-report.md）展示 Command、Result、Test Count、Failed、Errors、Skipped、Duration、Coverage/Mutation（若适用）、未验证范围与 blockers。复杂失败按需保存 failure-analysis.md，保留脱敏证据，不复制密码、Token、真实生产个人数据。
+1. 测试未发现/报告缺失：核对 engine、命名、includes/excludes、profile/task 依赖、skip、Gradle cache 和实际执行模块；不靠关闭 no-tests 检查修复。
+2. 上下文或连接失败：检查配置来源、bean/版本冲突、隔离服务 readiness 与连接权限；先确认实例安全和可用，不把凭证值写入报告。
+3. SQL/数据断言失败：核对迁移、fixture、时间精度、租户/过滤条件、真实查询和 flush/缓存；不先修改期望值。
+4. 行为断言失败：按输入、规则、实际路径和副作用定位到差异；需要生产修复时保留失败测试并核对授权。
+5. 单独通过而一起失败：检查共享数据、static 状态、顺序、Clock/随机源、异步任务和资源泄漏。按证据缩小复现，不把“重试后通过”当修复。
+
+有限重试只用于定位，默认至多一次且在相同代码/环境；记录全部尝试，不用最后成功覆盖先前失败。继续失败或无法解释的间歇通过要停下归因；不无限重试、不增加 sleep 来掩盖问题。补丁后的验证另行记录修改与新版本。
+
+报告（对话或按需保存的 verification-report.md）包含 Command、Result、Test Count、Failed、Errors、Skipped、Duration、Coverage/Mutation（若适用）、未验证范围与 blockers。复杂失败按需保存 failure-analysis.md，保留脱敏证据，不复制密码、Token、真实生产个人数据。

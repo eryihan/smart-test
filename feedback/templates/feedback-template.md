@@ -5,16 +5,16 @@ id: <沿用导出 feedback.json 的 id>
 date: <发现日期 YYYY-MM-DD>
 smart_test_version: <metadata 中的版本>
 smart_test_commit: null # 不可获得时保留 null
-host: <codex / claude-code / unknown>
+host: <codex / claude-code / other / unknown>
 host_version: null
-workflow: <help / init / scan / changes / check / pipeline>
+workflow: <help / init / scan / changes / check / pipeline / update>
 feedback_type: <feedback/README.md 中的类型>
 status: OPEN
 ```
 
 ## scenario
 
-合成场景、范围、前置条件、用户明确要求和复现步骤。说明 metadata.timestamp 是导出时间；发现时间或当时版本不确定时明确标记。不要粘贴业务原文、源码、完整 diff、内部地址或个人信息。
+合成场景、范围、前置条件、用户明确要求和复现步骤。metadata.timestamp 记录导出时间；发现时间或当时版本未知时标记 UNKNOWN。不要粘贴业务原文、源码、完整 diff、内部地址或个人信息。
 
 ## actual_behavior
 
@@ -30,7 +30,7 @@ UNKNOWN。定位后改为 SKILL_RULE / REFERENCE_RULE / HELPER_IMPLEMENTATION / 
 
 ## fix
 
-待定位。记录修改文件、原因和可追溯的修复引用；未实现时明确说明。
+待定位。记录修改文件、原因和可追溯的修复引用；未实现时标记待处理。
 
 ## regression_case
 

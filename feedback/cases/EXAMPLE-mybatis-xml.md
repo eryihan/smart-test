@@ -1,6 +1,6 @@
 # EXAMPLE：MyBatis XML 变化只生成 Unit Test
 
-**这是合成示例，不是真实项目反馈，也不代表验证已完成。**
+合成示例，验证状态为 NOT_RUN。
 
 ```yaml
 id: EXAMPLE-mybatis-xml
@@ -29,9 +29,9 @@ status: OPEN
 
 ## root_cause
 
-UNKNOWN。先检查宿主是否加载了 SQL 规则、Agent 是否忽略规则、helper 是否遗漏 XML 风险信号、fixture 是否提供了真实 XML 变化。不能仅凭最终回答认定是 Prompt 不足。
+UNKNOWN。先检查宿主是否加载了 SQL 规则、Agent 是否忽略规则、helper 是否遗漏 XML 风险信号、fixture 是否提供了真实 XML 变化。根因以加载记录、工具调用与输出证据判定。
 
-如果证据证明 reference 没有说明该 SQL 风险，归为 REFERENCE_RULE；如果确定性风险采集遗漏应有信号，归为 HELPER_IMPLEMENTATION。按实际证据选择，不同时猜测多个根因。
+如果 reference 缺少该 SQL 风险的规则，归为 REFERENCE_RULE；如果确定性风险采集遗漏应有信号，归为 HELPER_IMPLEMENTATION。按实际证据选择，证据不足时保持 UNKNOWN。
 
 ## fix
 

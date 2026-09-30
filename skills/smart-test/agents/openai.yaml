@@ -1,4 +1,4 @@
 interface:
   display_name: "smart_test"
-  short_description: "Repository-aware Java and Spring Boot test engineering"
+  short_description: "Backend test engineering with current Java support"
   default_prompt: "Use $smart-test to analyze this repository and implement the tests needed for my current changes."

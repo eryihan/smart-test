@@ -10,7 +10,7 @@
     {
       "name": "smart-test",
       "source": "./",
-      "description": "分析 Java / Spring Boot 仓库风险，补充测试并验证 CI 方案。",
+      "description": "按项目实际开展后端测试工程，当前提供 Java/Spring 专项指导与 skill 更新入口。",
       "license": "Apache-2.0",
       "category": "testing"
     }
