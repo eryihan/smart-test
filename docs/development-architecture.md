@@ -4,15 +4,26 @@
 
 ## 产品任务与执行边界
 
-smart_test 通过兼容 Agent Skills 的宿主完成后端测试接入、缺口分析、变更补测试、运行诊断和 CI 候选。当前专项实现为 Java/Spring。入口包括 help、init、scan、changes、check、pipeline 和 update，控制项由 Agent 解释执行。局部任务无需先 init；update 仅维护 skill。
+smart_test 负责项目测试规范、设施、用例、验证和 CI 的维护，通过兼容 Agent Skills 的宿主执行。当前专项实现为 Java/Spring。入口包括 help、init、scan、changes、check、pipeline、status、update 和 uninstall，控制项由 Agent 解释执行。局部任务无需先 init；status 只读，update 仅维护安装包，uninstall 先交接项目。命令与自然语言复用同一流程。
 
 | 执行方 | 职责 | 验证边界 |
 |---|---|---|
 | 宿主 Agent | 核对范围与业务规则，评估已有测试，选择边界，修改测试，执行命令并归因 | 核验依据与授权；源码、工具提示和结构校验不能作为业务真值 |
-| 标准库 Python 工具 | 静态仓库证据、结构与引用检查、JUnit 执行窗口、可选账本、反馈摘要 | 不生成完整调用图，不执行 Java 测试；业务正确性与授权真实性由 Agent 核验 |
+| 标准库 Python 工具 | 静态仓库证据、结构与引用检查、JUnit 执行窗口、规范登记、工作记录、可选账本和反馈摘要 | 不生成完整调用图；execute.py 调用已选定的原生命令并留证，业务正确性与授权真实性由 Agent 核验 |
 | 目标项目设施 | 编译、测试发现与执行，依赖行为验证，原生报告 | 结果限定于实际版本、配置、环境和断言范围 |
 
 Agent 将需求或变更关联到业务行为，再评估现有输入、断言与真实边界，优先补强已有测试。数据库、事务和 broker 语义使用真实依赖；远程替身仅验证本服务客户端处理。
+
+## 共用机制
+
+| 机制 | 内容 | 入口关系 |
+|---|---|---|
+| 项目上下文 | 生效规范、范围、适用业务依据与已有记录 | 首次实质任务接管；不要求全仓 init |
+| 测试实施与验证 | 风险分析、测试设计、技术栈接入、执行与归因 | init/scan/changes/check/pipeline 按任务组合 |
+| 工作记录与反馈 | 阶段进展、发现、实际执行证据、失败与下一步 | 所有实质任务复用同一记录格式；status 只读派生 |
+| 安装生命周期 | 原渠道更新、项目交接、原范围卸载和重新接管 | update 不碰项目；uninstall 保留项目资产 |
+
+新增命令只提供明确任务入口，不复制上下文、记录或执行机制。辅助脚本检查确定性结构与证据，Agent 判断业务含义和风险覆盖。
 
 ## 宿主与技术栈适配
 
@@ -33,10 +44,10 @@ SKILL.md 保存共同原则与路由。详细规则按职责维护：
 | Java/BOM、Maven/Gradle、Spring、SQL/事务与隔离 | java-testing.md |
 | 基线、执行、阶段结果、失败定位与受阻动作 | verification.md |
 | 覆盖率模式、分母、阈值和基线 | coverage.md |
-| 产物位置、JSON 格式及校验范围 | artifacts.md |
+| 生效规范、工作记录、产物位置和格式 | artifacts.md |
 | 指令作用域、决策依赖、授权记录与失效 | governance.md |
 | CI 候选、分项验证及应用 | ci.md |
-| 用户操作与 skill 更新 | help.md |
+| 用户操作、status、更新与卸载交接 | help.md |
 | 本地反馈导出 | feedback.md |
 
 扫描读取工作流与设计；Java 实施读取技术章节与验证；执行已有测试先读取验证。覆盖率、CI、账本和反馈按任务加载。runtime reference 不得引用安装包外的维护者 docs。
@@ -48,16 +59,20 @@ SKILL.md 保存共同原则与路由。详细规则按职责维护：
 - inspect_repo.py：读取 Git 变更、构建与源码候选、Mapper XML、迁移及指纹。模块影响为静态提示；不解析 Maven effective model、Gradle 动态代码、运行时 wiring 或符号图。Gradle 仅解析根 settings 的字面量 include 与 file projectDir 映射，未知部分需扩大验证。
 - validate_artifacts.py：检查实际依赖的五类项目 JSON。可选文件缺失不阻断任务；允许合法 UNKNOWN/BLOCKED。增量策略须有基线；阈值支持数值或 overall/incremental 对象。真实 commit、源码映射及业务依据由 Agent 核验。
 - collect_reports.py：检查 manifest 对应的 JUnit 文件、执行窗口、模块分组、必需测试身份、失败和跳过。Git HEAD、工作树指纹与版本匹配由 Agent 核验；EVIDENCE_PASS 仅为局部证据结果。
+- execute.py：执行 Agent 已授权、已选定的 argv，采集时间、退出码、引用文件变化和分组 JUnit 副本，自动追加开始与结束记录。成功仅记 NOT_VERIFIED，业务、范围和质量门由 Agent 复核后判定。
+- project.py：登记当前规范及接管、复核、交接事件；按任务追加工作记录，引用实际证据并标记变化。status 仅读取，不执行测试或环境探测；detach 只记录项目交接，不卸载软件。
 - state.py：原子 JSON 账本，保存指令、决策、事件、依赖与指纹。证据变化复核后可保留授权；语义变化按依赖重评。授权真实性由宿主核验。
 - export_feedback.py：向用户指定的项目外新目录导出白名单摘要，不复制源码、原始业务文本或日志，不上传。
 
-继承适用策略、计划和账本，保持状态 schema 与决策生命周期兼容。update 独立于业务阶段和治理产物。
+长期规则统一进入项目生效规范；复核、继承适用旧策略、计划和账本，保持旧 schema 与决策生命周期兼容。update 独立于业务阶段和治理产物。
 
 ## 运行数据与工作区
 
-局部分析和计划可在对话中完成。长期 policy、可恢复 plan 与跨会话 ledger 按需保存；实际执行后保留 run 证据，status 从证据派生。
+正常测试任务默认维护一份项目正式规范和 `.smart-test/records/<id>.json` 工作记录，执行后关联 run 证据。project.json 只登记管理状态、规范路径/指纹与生命周期事件，status 从记录派生；不另维护一套当前状态副本。独立计划、Oracle 和跨会话账本只在复用或复杂依赖需要时启用。扫描完成与验证通过分别记录；分套件保留最近结果与必需范围，构建结果不替代测试。每次验证引用已复核规范版本，同一任务可在规范变化后继续验证。记录覆盖 smart-test 参与的测试工作；外部手工执行从已有构建/CI 证据接续，缺少命令、时间或版本依据时保留未知，不补造运行 manifest。
 
 只读任务不创建文件、锁、fixture 或构建产物。实施时保留未提交修改；代码、依赖或测试配置变化后重验受影响范围。环境缺失仅阻断依赖动作；业务预期未知则暂停相关断言和修复。处理规则见 verification。
+
+测试、fixture、构建、项目脚本和正式 CI 不依赖 skill 安装路径，交付时即按原生命令验证。卸载保留资产、正式规范和历史，交回团队维护；重新安装先核对团队改动再接续。原生宿主卸载没有交接钩子，因此资产独立性不依赖卸载步骤。
 
 ## 迭代与验证
 

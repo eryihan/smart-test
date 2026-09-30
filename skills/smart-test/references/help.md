@@ -20,7 +20,9 @@ Claude Code：
 /smart-test:changes
 /smart-test:check
 /smart-test:pipeline
+/smart-test:status
 /smart-test:update
+/smart-test:uninstall
 /smart-test:smart-test help
 /smart-test:smart-test help pipeline
 ```
@@ -41,9 +43,11 @@ Claude 插件提供模式命令，兼容 `/smart-test:smart-test <模式>`。其
 | `changes` | 分析当前变更并补充相关测试 | 读取工作树、staged 或指定基线的变更 |
 | `check` | 执行测试、收集报告、判断验证结果 | 只执行已有构建配置能证明的测试 |
 | `pipeline` | 生成并检查 CI 候选，区分草稿与已验证结果 | 默认输出候选和 patch，不直接改正式 CI |
+| `status` | 查看管理状态、已记录验证和待办 | 只读，不执行测试，不探测环境 |
+| `uninstall` | 交接当前项目并卸载 skill | 保留项目资产，沿用原安装渠道与范围 |
 | `update` | 更新已安装的 smart-test | 通过原安装渠道，保护本地定制；不扫描后端项目或运行测试 |
 
-按任务直接选择：补当前改动用 `changes`，运行验证用 `check`，了解存量缺口用 `scan`，搭建测试体系用 `init`，接入 CI 用 `pipeline`。普通任务不要求先 init。`pipeline verify` 和 `pipeline finalize` 是 pipeline 内的阶段。
+按任务直接选择：补当前改动用 `changes`，运行验证用 `check`，了解存量缺口用 `scan`，搭建或接管测试体系用 `init`，接入 CI 用 `pipeline`，查看进展用 `status`。普通任务不要求先 init。`pipeline verify` 和 `pipeline finalize` 是 pipeline 内的阶段。
 
 ## 常用控制项
 
@@ -74,11 +78,11 @@ Claude 插件提供模式命令，兼容 `/smart-test:smart-test <模式>`。其
 
 报告列出保护的行为、补强或新增的测试、实际命令、失败原因及未验证范围。判定见 [verification.md](verification.md#阶段结果)；VALID/EVIDENCE_PASS 仅为辅助工具结果。
 
-局部任务直接分析风险、补测试并验证。计划、约定和账本按用户要求、复用、恢复或审计需要保存；实际执行保留运行证据，继承适用约束。
+首次正常任务归并已有测试规则，登记一份生效项目规范。已有规范直接接管；无规范时使用项目正式文档目录。后续测试工作由 smart-test 维护该规范，真实冲突和超出授权的选择仍需查证。
 
-结构化产物按实际依赖校验。BLOCKED 计划可交付；业务预期未知时暂停相关断言，环境缺失时继续有依据的测试实现。规则见 [按需产物与校验](artifacts.md) 和 [受阻工作](verification.md#受阻工作)。
+每次实质任务在 `.smart-test/records/` 保存检查范围、依据、发现、修改、验证和下一步；实际执行关联 `.smart-test/runs/` 中的命令与报告。scan 默认分析并留下记录，分析完成不代表测试通过。无需用户创建目录或选择记录格式。help、status、明确只读和 dry-run 不写文件。
 
-产物写入 `.smart-test/`，兼容原有格式。长期约定使用 policy，可恢复任务使用 plan，运行证据使用 runs；目录与字段见 [artifacts.md](artifacts.md)。
+测试、fixture、构建配置、项目执行脚本和正式 CI 留在原生位置，可脱离 skill 运行。规范、工作记录、运行证据与可选旧产物的职责见 [artifacts.md](artifacts.md)。独立计划、业务依据文件和决策账本仅在复用或复杂依赖需要时启用；BLOCKED 计划可以交付，继续不受阻的工作。
 
 没有本地集成环境时可生成待验证 CI 草稿，保留未运行套件、Runner 前提和 NOT_RUN/NOT_VERIFIED 标记。finalize 仍要求本地或等价 CI 环境的完整执行证据和候选检查。
 
@@ -100,6 +104,7 @@ $smart-test scan
 $smart-test changes --base origin/main
 $smart-test check --fast
 $smart-test pipeline
+$smart-test status
 ```
 
 也可以用自然语言描述范围，例如“只检查 order 模块”“不要修改生产代码”“本轮只生成计划”“本次只报告覆盖率”。
@@ -109,6 +114,25 @@ $smart-test pipeline
 ## 反馈
 
 发现策略错误、误判或范围问题时，在当前对话中要求导出本地脱敏反馈，并指定项目外的新目录。按 [本地反馈导出](feedback.md) 处理，不自动上传；反馈包不含源码和原始业务描述，人工复核后带回 smart_test 仓库追踪修复与回归。仅查看帮助不执行导出。
+
+## 项目状态
+
+`status` 读取管理登记、当前规范和工作记录，列出最近任务、历史验证结果、证据变化、未解决发现及下一步。使用 `project.py --repo <repo> status`，必要时继续读取相关记录；不运行测试、不探测数据库或 Docker、不修复或刷新记录、不创建目录或锁。
+
+未登记项目返回 UNMANAGED，已有旧产物可作为线索，不强制 init。已交接项目显示 RELEASED。源码、规范、manifest 或报告变化时区分历史结果与当前 STALE；仅比较已引用的文件，不声称外部环境仍可用，也不把单类验证写成全仓通过。缺失或损坏记录如实报告，不在状态查询中补造。按套件显示必需项与各自最近结果：Unit PASS、必需 Integration NOT_RUN 时不能汇总 PASS；构建 PASS 单列。规范复核后的重跑关联新规范，旧结果保留。Agent 根据已有范围给出下一步命令。
+
+## 退出管理与卸载
+
+`uninstall` 先交接当前项目，再沿原渠道与范围卸载安装包。`uninstall --dry-run` 只展示交接差异和卸载动作。用户明确只卸载安装包时遵守该范围，不强制接管或改项目。
+
+1. 核对实际加载目录、宿主管理记录、安装 ID 与范围。用户级卸载会影响同一安装下的其他项目，说明范围，不扫描或修改其他仓库。多个来源无法区分时，只询问实际卸载对象。
+2. 读取当前规范、任务与未解决发现。将原生测试命令、隔离环境前提、报告位置、验证范围和剩余事项补入现有规范的交接部分，不重复维护第二份手册。没有规范时按项目文档位置写最小交接内容。交接不要求重跑全量测试。
+3. 核查测试、构建、fixture、脚本及正式 CI 是否引用 skill 安装目录。将实际必需的运行能力留在项目，优先使用原生构建命令；必要移入项目的脚本保留许可证与维护说明，完成相应验证。无法解除依赖时记录阻塞，不声称项目已独立可用。
+4. 保留所有成熟测试设施、项目规范、`.smart-test/` 历史与用户修改。只移除明确属于本次安装、指向 skill 的自动加载条目；不删除整份 AGENTS.md / CLAUDE.md。规范交回团队维护，原生测试入口继续可用。
+5. 在 uninstall 工作记录中完成 handover 阶段，关联交接文件与实际检查依据；调用 `project.py ... detach --id <id> --handover <项目交接文档> --reason <实际交接结果>` 登记 RELEASED。规范已修改时先 adopt 复核。已有 RELEASED 不反复接管；未登记项目可在实际交接时登记，无需先 init。
+6. 使用宿主卸载能力，保留安装范围与 ID；不手工删除管理器缓存。宿主支持保留插件数据时采用相应选项（Claude 当前为 `--keep-data`），不顺带清理其他依赖。独立安装仅移除已确认的 skill 目录，保留备份中的定制。卸载前准备好最后一条记录的写入方式，卸载后直接追加实际成功或失败；项目交接与安装包移除分别报告。移除失败不抹掉交接结果，也不声称卸载完成。
+
+直接通过宿主卸载不会触发项目交接；资产从交付时起就应独立于 skill，因此仍保留可运行的框架。重新安装后复核团队后续修改，接续规范与历史；不会重新搭建整套设施。
 
 ## 更新 skill
 

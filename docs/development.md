@@ -20,7 +20,7 @@ tests/                      辅助脚本回归测试
 
 兼容 Agent Skills 的宿主加载完整 `skills/smart-test`。Codex 的 skill-installer 下载该目录；Claude Code 从市场找到根目录插件，再发现共用 skill。其他 Agent 用原生安装功能或显式指定目录。只有一份核心源码，不需要 MCP 服务或安装钩子。
 
-Claude 插件提供 `/smart-test:help|init|scan|changes|check|pipeline|update`，也兼容 `/smart-test:smart-test <模式>`；独立安装调用 `/smart-test <模式>`。两种形式同时安装会重复发现技能。
+Claude 插件提供 `/smart-test:help|init|scan|changes|check|pipeline|status|update|uninstall`，也兼容 `/smart-test:smart-test <模式>`；独立安装调用 `/smart-test <模式>`。两种形式同时安装会重复发现技能。
 
 ## 开发验证
 
@@ -39,6 +39,10 @@ claude --plugin-dir /absolute/path/to/smart_test
 ```
 
 进入会话后调用 `/smart-test:smart-test init --dry-run`。行为场景见 [evals/evals.json](../evals/evals.json)，fixture 位于 evals/fixtures。记录输入、diff、命令与结果；清单校验、工具回归、fixture 测试和宿主行为分别验收。
+
+项目记录回归覆盖纯扫描、跨任务发现、中断、只读状态、证据变化、并发保护、交接保留与重新接管。结果判定另覆盖必需套件未运行、规范复核后重跑、编译与测试区分；执行工具覆盖实际退出码、超时、报告副本及执行期间文件变化。辅助工具通过不代表宿主按流程使用了工具；端到端场景须在实际宿主另行记录结果。
+
+事务 fixture 使用 Spring 5.1.9、JUnit 4 与隔离 H2，验证服务事务的提交、回滚和拒绝后的数据状态；测试方法不加事务。依赖版本用于重现 Java 8 场景。复制到临时目录后执行 `mvn test`；移除临时副本中的服务事务注解应检出库存回滚和代理两项失败。契约与验证边界见 [fixture 规则](../evals/fixtures/spring-transaction/rules.md)。不在源码 fixture 或业务项目生成构建产物，不据此推断生产数据库兼容性。
 
 使用 skill-creator 的 `scripts/quick_validate.py skills/smart-test` 校验 frontmatter，校验器依赖 PyYAML；skill 工具仅依赖 Python 标准库。检查本地链接和独立安装，runtime reference 不得引用包外 docs。
 

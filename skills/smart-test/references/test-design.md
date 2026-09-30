@@ -74,6 +74,6 @@ mock 不得替代被测行为或目标 SQL/事务/broker 语义。Slice 能否�
 
 PIT/性质测试按确定性规则、兼容设施与实际需求选用。可在隔离 fixture 中改错边界比较符、移除归属判断或回滚步骤，检查断言能否发现错误；禁止在用户业务工作区制造缺陷。
 
-交付列明保护的行为、复用或新增的测试、实际执行范围和剩余缺口；按需保存 JSON。
+交付列明保护的行为、复用或新增的测试、实际执行范围和剩余缺口；默认追加工作记录，独立复用时再拆出设计或计划文件。
 
 方法参考：[ISTQB CTFL 4.0.1 第 4.2 节](https://istqb.org/?download_id=3345&sdm_process_download=1)、[Google Unit Testing](https://abseil.io/resources/swe-book/html/ch12.html)。框架 API 使用项目对应版本的官方文档。

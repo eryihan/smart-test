@@ -4,7 +4,7 @@
 
 ## 策略输入
 
-在 `test-policy.json` 或本次用户指令中记录以下字段。未指定模式时保持 `UNSPECIFIED`：
+长期要求写入生效项目规范，本次要求写入工作记录；已有 `test-policy.json` 继续兼容。记录以下信息，不强制另建覆盖率策略文件。未指定模式时保持 `UNSPECIFIED`：
 
 ```json
 {

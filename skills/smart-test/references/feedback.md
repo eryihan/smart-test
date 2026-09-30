@@ -12,7 +12,7 @@
 python3 <skill-dir>/scripts/export_feedback.py --repo <repo> --output /private/tmp/smart-test-feedback-001 --host codex --workflow changes --feedback-type WRONG_STRATEGY
 ```
 
-`--host` 为 `codex / claude-code / other / unknown`，`--workflow` 为 help/init/scan/changes/check/pipeline/update。可提供 `--host-version 1.2.3`；仅接受数字版本，不运行宿主探测命令，不读取环境变量。未知版本省略后为 null。`--feedback-type` 可选值见脚本 `--help`，默认 OTHER。
+`--host` 为 `codex / claude-code / other / unknown`，`--workflow` 为 help/init/scan/changes/check/pipeline/status/update/uninstall。可提供 `--host-version 1.2.3`；仅接受数字版本，不运行宿主探测命令，不读取环境变量。未知版本省略后为 null。`--feedback-type` 可选值见脚本 `--help`，默认 OTHER。
 
 4. 查看摘要的缺失与省略标记。必要的语义信息另用合成场景描述；不要改脚本以复制原始资料。人工复核后由用户自行带回 `smart_test`，创建 case 并关联修复和回归。
 
@@ -32,12 +32,12 @@ python3 <skill-dir>/scripts/export_feedback.py --repo <repo> --output /private/t
 | test-policy.json | 已知测试套件、覆盖率枚举与数字阈值、生产修改布尔边界 |
 | test-plan.json | 包内条目编号、风险/套件枚举、required、断言数量和 Oracle 是否存在 |
 | status.json | 顶层及阶段状态枚举、blocker 数量；阶段只用生成编号 |
-| execution-summary.json | 已有执行摘要和 runs 下 manifest 的状态、计数、运行类型、退出码及报告组数量 |
+| execution-summary.json | 已有执行摘要和 manifest 摘要；project_work 中的管理状态、任务入口、阶段状态、证据及发现数量 |
 | sanitized-change-summary.json | repository-evidence 中的变更类型、固定风险信号、重新编号后的路径 |
 
-直接读取 `.smart-test/` 下同名 artifacts。变更摘要只读取 `repository-evidence.json` 的既有记录，不运行 Git，不重新扫描源码。执行摘要读取 `execution-summary.json` 及 `runs/<run-id>/manifest.json`，不读取 XML 或日志，不因导出而重新判定 PASS。产物可能陈旧，必须结合合成复现确认根因。
+直接读取 `.smart-test/` 下同名 artifacts。变更摘要只读取 `repository-evidence.json` 的既有记录，不运行 Git，不重新扫描源码。执行摘要读取 `execution-summary.json` 及 `runs/<run-id>/manifest.json`，并读取 project.json 与 records 下的记录，按白名单输出枚举和数量；不读取规范正文、XML 或日志，不因导出而重新判定 PASS。产物可能陈旧，必须结合合成复现确认根因。
 
-输入缺失记 MISSING，不为导出补造；非法 JSON 或根结构记 INVALID_JSON / INVALID_ROOT；单文件超过 2 MB 记 OMITTED_TOO_LARGE。读取状态与项目验证结果分别记录。列表最多导出 1000 项，run 目录最多读取 100 项，并保留总数量；超出项记为省略。
+输入缺失记 MISSING，不为导出补造；非法 JSON 或根结构记 INVALID_JSON / INVALID_ROOT；单文件超过 2 MB 记 OMITTED_TOO_LARGE。读取状态与项目验证结果分别记录。列表最多导出 1000 项，run 目录和工作记录各最多读取 100 项，并保留总数量；超出项记为省略。
 
 版本来自随安装包提供的 `version.json`。commit 优先使用包内记录；在 smart_test 源码 checkout 中可读取自身 HEAD，绝不读取目标业务仓库的 commit 或 remote。独立安装无法获得 commit 时为 null。checkout HEAD 不证明工作区未修改，metadata 会注明这一限制。导出版本是当前 exporter 的版本，不推断旧 artifacts 当时使用的版本；若已升级，case 中必须说明原版本未知或另附可靠版本记录。其他 Agent 使用 `--host other`。
 

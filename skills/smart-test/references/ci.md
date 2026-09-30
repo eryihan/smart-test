@@ -2,7 +2,7 @@
 
 ## pipeline
 
-先从用户目标、仓库已有构建/CI、适用测试约定和实际运行记录确定命令、套件与环境要求。没有 policy/plan/Oracle 文件不妨碍生成候选；已有适用要求仍须继承。项目运行时/build 版本、Runner/网络/容器条件和 secret 引用分别记录来源，未知项明确列出；按项目技术栈选择命令。
+按 [项目规范与工作记录](artifacts.md#项目规范与工作记录) 接续或开始 pipeline 任务，从用户目标、仓库已有构建/CI、生效测试规范和实际运行记录确定命令、套件与环境要求。没有 policy/plan/Oracle 文件不妨碍生成候选；已有适用要求仍须继承。项目运行时/build 版本、Runner/网络/容器条件和 secret 引用分别记录来源，未知项明确列出；按项目技术栈选择命令。
 
 本地缺数据库但需要借助 CI 验证时，可先生成草稿并标 `command_verification: NOT_VERIFIED`、`provider_execution: NOT_RUN`，列出未执行套件与环境前提。没有可信命令来源或必要业务选择未定时，只生成可确定部分并标明缺口，草稿保留未验证状态，finalize 前须补齐验证。
 
@@ -10,7 +10,9 @@
 
 没有指明 provider 时复用仓库已有 provider；没有 CI 且用户未指定时，先给候选选择及理由，未获授权不改正式位置。支持 GitHub Actions、GitLab CI；其他 provider 依据其现有约定生成并说明验证边界，不伪造 provider 已验证。
 
-候选文件写 `.smart-test/ci-candidate/github-actions.yml` 或 `gitlab-ci.yml`，验证记录另存同目录 Markdown。随附来源命令与已有 run IDs（未执行时明确无 run）、工作树指纹、每个 job 的命令和 suite、runner 要求、secrets 名称、报告路径、状态。分别记录 `command_verification`、`syntax_validation`、`provider_execution`，使用 VERIFIED / FAILED / UNKNOWN / NOT_RUN / NOT_VERIFIED；候选生成与三类验证分别记录。
+命令、配置和正式 CI 必须脱离 skill 安装目录运行，使用项目 wrapper、构建 task 或项目脚本。候选生成、修改与分项验证及时追加工作记录。
+
+候选文件写 `.smart-test/ci-candidate/github-actions.yml` 或 `gitlab-ci.yml`，验证结果放工作记录，独立复用时再保存同目录 Markdown。随附来源命令与已有 run IDs（未执行时明确无 run）、工作树指纹、每个 job 的命令和 suite、runner 要求、secrets 名称、报告路径、状态。分别记录 `command_verification`、`syntax_validation`、`provider_execution`，使用 VERIFIED / FAILED / UNKNOWN / NOT_RUN / NOT_VERIFIED；候选生成与三类验证分别记录。
 
 按实际需求映射：
 

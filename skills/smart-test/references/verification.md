@@ -2,7 +2,7 @@
 
 ## 执行前
 
-读取本次执行范围、仓库已有测试约定、环境证据和生产修改边界。已有适用 policy/plan 要继续遵守；没有持久产物时直接从用户任务、构建配置和风险确定必需套件，不要求先 init 或创建账本。使用实际构建配置、task 或 CI 中的命令，核对参数来源。运行仓库 wrapper 或构建文件会执行仓库代码；先按宿主规则检查可信度、权限、网络和成本。
+按 [项目规范与工作记录](artifacts.md#项目规范与工作记录) 接续或开始任务，读取本次执行范围、生效测试规范、环境证据和生产修改边界。已有适用 policy/plan 要继续遵守；没有持久产物时直接从用户任务、构建配置和风险确定必需套件，不要求先 init 或创建账本。使用实际构建配置、task 或 CI 中的命令，核对参数来源。运行仓库 wrapper 或构建文件会执行仓库代码；先按宿主规则检查可信度、权限、网络和成本。
 
 只计划/dry-run 不执行构建。网络/Docker 被禁止时不尝试绕过；集成环境不可用时继续可做的验证并保留 BLOCKED。仅完成 Unit 时报告对应范围结果。
 
@@ -18,7 +18,35 @@
 
 按需执行编译 → Unit/Slice → 必需 Integration → 适用 Contract → Critical flow → 质量检查。Maven `verify` 包含前序阶段，避免重复执行。
 
-每次实际运行按 [运行 manifest](artifacts.md#运行-manifest) 保存记录，命令、时间与退出码优先从工具返回直接获取。执行前后核对 Git HEAD、工作树和测试配置；报告与当前版本不一致时不能复用通过结论。运行证据是默认持久产物，不要求同时生成 policy/plan/status。
+每次实际运行按 [运行 manifest](artifacts.md#运行-manifest) 保存记录，命令、时间与退出码优先从工具返回直接获取。执行前后核对 Git HEAD、工作树和测试配置；报告与当前版本不一致时不能复用通过结论。运行证据关联本次工作记录，不要求同时生成独立 policy/plan/status。保存实际工作目录、完整参数及版本依据；脱敏不能省略影响测试选择的 profile、skip 或 no-tests 参数。
+
+JUnit 原生命令优先调用内部执行工具，由 Agent 在项目外临时目录准备输入：
+
+```json
+{
+  "argv": ["./mvnw", "test", "-Dtest=OrderServiceTest"],
+  "summary": "订单金额边界单测",
+  "check_id": "unit",
+  "required_checks": ["unit", "integration"],
+  "evidence_paths": ["pom.xml", "src/main/java/OrderService.java", "src/test/java/OrderServiceTest.java"],
+  "reports": ["target/surefire-reports/TEST-*.xml"],
+  "timeout_seconds": 600
+}
+```
+
+示例路径、命令和必需项须替换为项目实际范围；仅需 Unit 时不添加 integration。多模块分别列出报告 pattern，每项均须有本轮实际执行的测试。编译输入设置 `kind: "compile"`、`reports: []`。
+
+```text
+python3 <skill-dir>/scripts/execute.py --repo <repo> --id <工作记录id> --input <临时执行输入.json>
+```
+
+工具直接传递 argv，不经 shell 拼接；保存开始进度、实际退出码、时间、代码指纹及报告副本，随即关联同一工作记录。成功执行先记 NOT_VERIFIED，Agent 复核断言、范围和适用质量门后再追加 PASS；非零退出记 FAILED。超时、中断和启动失败保留 termination，124/130/127 是工具退出码，不能当作原生命令返回值。POSIX 超时或中断终止进程组；其他平台只终止直接子进程，须核查残留构建进程。硬终止或机器断电可能留下 IN_PROGRESS 和锁，恢复时核查进程与运行目录，不补造退出码。
+
+工具只复制执行窗口内的指定 XML，保留 mtime，不删除项目报告。已有报告、零测试和执行期间引用文件变化不能产生 EVIDENCE_PASS。追加 PASS 时再次核对 manifest 中的执行后指纹，源码变化后不能重新标记旧运行；未提供自动指纹的原生或 CI 证据仍由 Agent 核对版本。同一工作目录的工具执行互斥，status 仍只读；不要另行并发运行会覆盖报告的命令。敏感参数通过既有环境或宿主管理能力提供，不能放进将被保存的 argv。输出不另存整份构建日志；报告副本限制为本地可读，分享前仍需脱敏。
+
+输入或记录写入失败时，核查已生成的 runs 目录并补关联真实证据，不能直接重跑掩盖前次结果。工具适用于 JUnit 报告；框架原生报告、CI 远端任务和专用质量工具仍由 Agent 按下述方式留证，不编造 JUnit。
+
+核对构建命令本身的退出码；tail、grep、tee 等管道末端成功不能代替构建成功。报告须证明目标测试实际被发现、执行，`-DfailIfNoTests=false` 等参数不能证明非零测试数。
 
 若多条命令会覆盖同一路径报告，在每次结束时立即复制 XML 到 `.smart-test/runs/<run-id>/...` 快照，再执行下一条。保留原始 mtime，以便判定其属于该次执行。不要删除用户已有报告；可在允许范围内清理本轮生成目录或选用全新报告路径。报告中的 stdout/stderr/properties 可能包含秘密，不复制到可共享报告；敏感 XML 只供本地检查，分享前脱敏。
 
@@ -38,7 +66,7 @@ python3 <skill-dir>/scripts/collect_reports.py --repo <repo> --manifest <manifes
 
 覆盖率按 [coverage.md](coverage.md) 解析。未指定的新门禁不新增阈值，但仓库已有门禁仍然适用；`REPORT_ONLY` 只展示结果，不把报告转换为阻断条件。
 
-按本次 run 与质量门生成结论。只有需要恢复或审计时才保存 status.json；消费或生成已知 JSON 时按 [artifacts.md](artifacts.md) 校验实际依赖，不为 check 补齐整套治理文件。结构问题阻断依赖该产物的结论，不妨碍说明已观察到的执行结果和继续独立验证。
+按本次 run 与质量门生成结论，立即追加工作记录；独立 status.json 仅在旧流程实际消费或独立复用时保存。消费或生成已知 JSON 时按 [artifacts.md](artifacts.md) 校验实际依赖，不为 check 补齐整套治理文件。结构问题阻断依赖该产物的结论，不妨碍说明已观察到的执行结果和继续独立验证。
 
 verification 标 PASS 须同时满足：
 
@@ -52,10 +80,11 @@ verification 标 PASS 须同时满足：
 
 ## 阶段结果
 
-按实际范围分别解释分析、实施和验证，按恢复或审计需要保存 status；JSON 格式见 artifacts。
+按实际范围分别记录分析、实施进度和验证结果。工作进度可 COMPLETED，验证仍为 NOT_RUN；格式见 artifacts。
 
 | 状态 | 含义 |
 |---|---|
+| COMPLETED | 本次声明的工作范围已完成；另列测试验证结果 |
 | NOT_STARTED / NOT_RUN | 工作未开始 / 命令或测试未实际执行 |
 | PROPOSED / READY | 方案待处理 / 该阶段输入齐备；验证结果与执行授权另行核对 |
 | PARTIAL | 已完成明确子范围，仍有必需部分未完成；列出各部分结果 |
@@ -96,4 +125,4 @@ verification 标 PASS 须同时满足：
 
 有限重试只用于定位，默认至多一次且在相同代码/环境；记录全部尝试，不用最后成功覆盖先前失败。继续失败或无法解释的间歇通过要停下归因；不无限重试、不增加 sleep 来掩盖问题。补丁后的验证另行记录修改与新版本。
 
-报告（对话或按需保存的 verification-report.md）包含 Command、Result、Test Count、Failed、Errors、Skipped、Duration、Coverage/Mutation（若适用）、未验证范围与 blockers。复杂失败按需保存 failure-analysis.md，保留脱敏证据，不复制密码、Token、真实生产个人数据。
+工作记录中的验证摘要包含 Command、Result、Test Count、Failed、Errors、Skipped、Duration、Coverage/Mutation（若适用）、未验证范围与 blockers。对话交付与记录保持一致；独立复用时再保存 verification-report.md。复杂失败按需保存 failure-analysis.md，保留脱敏证据，不复制密码、Token、真实生产个人数据。

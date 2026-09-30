@@ -1,6 +1,6 @@
 # smart_test
 
-smart_test 面向企业级后端项目：根据实际语言、运行时、架构、业务风险和已有设施选择测试方案，评估测试缺口、补测试、执行诊断并生成 CI 候选。
+smart_test 是企业级后端项目的测试助手，维护项目测试规范、设施、用例和验证记录：根据实际语言、运行时、架构、业务风险和已有设施选择测试方案，评估测试缺口、补测试、执行诊断并生成 CI 候选。
 
 当前专项实现覆盖 Java 8+、Spring Boot 2/3、Maven/Gradle。其他语言支持按实际项目逐步扩展。数据库、中间件测试使用隔离环境，结果列明未执行范围。
 
@@ -50,7 +50,7 @@ claude plugin install smart-test@smart-test --scope project
 /smart-test:smart-test init
 ```
 
-插件提供 `/smart-test:help|init|scan|changes|check|pipeline|update`，也兼容 `/smart-test:smart-test <模式>`。
+插件提供 `/smart-test:help|init|scan|changes|check|pipeline|status|update|uninstall`，也兼容 `/smart-test:smart-test <模式>`。
 
 本仓库提供第三方 Claude Code 插件市场。
 
@@ -100,7 +100,7 @@ Claude Code: /smart-test:changes
 
 也可直接指定范围与规则，例如“只补 order 模块的金额边界测试；拒绝后不能写订单或扣额度”。skill 会先检查已有测试，选择能验证该行为的边界，再补强或新增测试并运行。
 
-只分析时明确说“不修改、不执行”，或使用 `changes --dry-run`。搭建测试设施用 `init`，找存量缺口用 `scan`，运行已有测试用 `check`，生成 CI 候选用 `pipeline`。
+只分析时明确说“不修改、不执行”，或使用 `changes --dry-run`。搭建测试设施用 `init`，找存量缺口用 `scan`，运行已有测试用 `check`，生成 CI 候选用 `pipeline`，查看进展和待办用 `status`。
 
 完整调用方式、控制项、覆盖率、结果解释和典型请求统一见 [使用指南](skills/smart-test/references/help.md)。安装后可直接请求帮助：
 
@@ -109,9 +109,18 @@ Codex:       $smart-test help
 Claude Code: /smart-test:help
 ```
 
-保存实际运行证据；计划、长期约定和账本按复用、恢复或审计需要保存。Unit 与数据库集成分别报告结果。
+首次正常任务接管已有测试约定，维护一份生效项目规范；每次任务默认在 `.smart-test/records/` 记录检查范围、发现、修改与下一步，实际执行关联运行证据。scan 会留存分析过程，help、status、明确只读和 dry-run 不写文件。Unit 与数据库集成分别报告结果。
+
+用户只需给出测试目标与范围，Agent 负责选择方案、维护规范、记录和交付。测试代码、构建、执行脚本和正式 CI 留在项目原生位置，可独立于 skill 运行。
 
 ## 4. 更新和卸载
+
+维护入口：`update` 更新安装包，`uninstall` 交接当前项目并卸载。交接保留成熟测试框架、规范和历史，解除对 skill 安装路径的依赖；安装包卸载与项目交接分别报告。具体步骤见 [退出管理与卸载](skills/smart-test/references/help.md#退出管理与卸载)。
+
+```text
+Codex:       $smart-test uninstall
+Claude 插件: /smart-test:uninstall
+```
 
 快捷更新可直接对 Agent 说“更新 smart-test”，或使用：
 
@@ -130,10 +139,10 @@ claude plugin marketplace update smart-test
 claude plugin update smart-test@smart-test
 ```
 
-更新后重新加载插件或开启新会话。卸载：
+更新后重新加载插件或开启新会话。推荐使用 skill 的 uninstall 先交接；只移除安装包时可用宿主命令：
 
 ```bash
-claude plugin uninstall smart-test@smart-test
+claude plugin uninstall smart-test@smart-test --keep-data
 ```
 
 项目级操作增加 `--scope project`。
@@ -146,7 +155,7 @@ claude plugin uninstall smart-test@smart-test
 $smart-test update
 ```
 
-独立安装的卸载按宿主规则移除 `smart-test` 目录。卸载不会删除目标业务仓库中的测试代码和 `.smart-test/`。
+使用 `$smart-test uninstall` 完成交接，再按宿主规则移除已确认的 skill 目录。直接移除安装包不会执行项目交接，但项目内的测试代码、规范和 `.smart-test/` 历史仍保留。
 
 Claude 的第三方市场默认不自动更新；需要时可在 `/plugin` 的 Marketplaces 页开启该市场的自动更新。自动更新后的当前会话仍需按提示重新加载。[Claude 更新机制](https://code.claude.com/docs/en/discover-plugins#keep-plugins-updated)
 

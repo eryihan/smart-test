@@ -1,8 +1,8 @@
 # 可选项目记忆与决策复用
 
-适用于跨会话约束、决策依赖、审计或已有 state.json。局部任务按 SKILL.md 执行，按需创建 directives、proposals 和 approvals。
+适用于跨会话约束、决策依赖、审计或已有 state.json。项目规范与普通工作记录按 [artifacts.md](artifacts.md) 默认维护；本账本仅处理确有需要的复杂约束和决策依赖，不要求普通任务创建 directives、proposals 和 approvals。
 
-按生命周期与 scope 继承适用约束，排除不适用旧记录。优先复用 test-policy 和计划内依据，结构化产物见 [artifacts.md](artifacts.md)。
+按生命周期与 scope 继承适用约束，排除不适用旧记录。长期规则归入生效项目规范；已有 test-policy、计划与账本中的适用要求复核后继续使用，避免两个规范来源并行漂移。优先复用已确认依据，结构化产物见 [artifacts.md](artifacts.md)。
 
 ## 账本存储
 
