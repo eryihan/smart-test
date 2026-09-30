@@ -84,6 +84,45 @@ class FeedbackExportTests(unittest.TestCase):
         self.assertEqual(feedback['root_cause'], 'UNKNOWN')
         self.assertIsNone(feedback['expected_behavior'])
 
+    def test_project_records_export_only_statuses_and_counts(self):
+        self.put('.smart-test/project.json', {'management': 'RELEASED',
+                 'policy': {'path': 'private/norm.md', 'sha256': 'private-hash'},
+                 'events': [{'reason': 'private-business-rule'}]})
+        self.put('.smart-test/records/private-record.json', {'workflow': 'uninstall',
+                 'scope': 'private-module', 'events': [{'stage': 'handover', 'status': 'COMPLETED',
+                 'summary': 'private-business-rule', 'verification': 'NOT_RUN',
+                 'evidence': {'private/pom.xml': 'private-hash'}, 'execution': [],
+                 'findings': [{'id': 'private-record:F1', 'summary': 'private-rule', 'status': 'OPEN'}]}]})
+        self.export(workflow='uninstall')
+        work = self.read('execution-summary.json')['project_work']
+        self.assertEqual(work['management'], 'RELEASED')
+        self.assertEqual(work['record_count'], 1)
+        self.assertEqual(work['records'][0]['workflow'], 'uninstall')
+        self.assertEqual(work['records'][0]['events'][0]['findings']['OPEN'], 1)
+        self.assertEqual(work['records'][0]['events'][0]['evidence_count'], 1)
+        self.assertNotIn('private-', (self.output / 'execution-summary.json').read_text())
+        self.assertNotIn('private/', (self.output / 'execution-summary.json').read_text())
+        self.assertEqual(len(list(self.output.iterdir())), 10)
+
+    def test_project_record_symlink_is_rejected_before_export_writes(self):
+        target = self.base / 'outside.json'
+        target.write_text('{}')
+        records = self.repo / '.smart-test/records'
+        records.mkdir(parents=True)
+        (records / 'linked.json').symlink_to(target)
+        with self.assertRaises(ValueError):
+            self.export()
+        self.assertFalse(self.output.exists())
+
+    def test_project_record_export_limits_are_explicit(self):
+        for index in range(exporter.MAX_RUN_FILES + 2):
+            self.put('.smart-test/records/record-%03d.json' % index, {'workflow': 'scan', 'events': []})
+        self.export(workflow='status')
+        work = self.read('execution-summary.json')['project_work']
+        self.assertEqual(work['record_count'], exporter.MAX_RUN_FILES + 2)
+        self.assertEqual(len(work['records']), exporter.MAX_RUN_FILES)
+        self.assertEqual(work['records_omitted'], 2)
+
     def test_nested_stage_statuses_are_exported_without_names_or_blocker_text(self):
         self.put('.smart-test/status.json', {'status': 'PARTIAL', 'stages': {
             'private-unit-stage': {'status': 'PASS', 'blocking_ids': []},

@@ -171,6 +171,40 @@ def run_summary(data):
     return result
 
 
+def project_summary(root):
+    data, state = read_json(root, '.smart-test/project.json')
+    result = {'input_state': state,
+              'management': enum(data.get('management'), {'MANAGED', 'RELEASED'}),
+              'policy_registered': isinstance(data.get('policy'), dict),
+              'lifecycle_event_count': count(data.get('events')), 'records': []}
+    directory = relative_file(root, '.smart-test/records')
+    if not directory.exists():
+        result.update(record_count=0, records_omitted=0)
+        return result
+    if not directory.is_dir():
+        raise ValueError('invalid records directory')
+    paths = sorted(directory.glob('*.json'))
+    result.update(record_count=len(paths), records_omitted=max(0, len(paths) - MAX_RUN_FILES))
+    for path in paths[:MAX_RUN_FILES]:
+        data, state = read_json(root, '.smart-test/records/' + path.name)
+        events = [obj(e) for e in rows(data.get('events'))]
+        result['records'].append({
+            'record': len(result['records']) + 1, 'input_state': state,
+            'workflow': enum(data.get('workflow'), WORKFLOWS), 'event_count': len(events),
+            'events_omitted': max(0, len(events) - MAX_ITEMS),
+            'events': [{
+                'stage': enum(e.get('stage'), {'discovery', 'design', 'implementation',
+                                              'verification', 'handover', 'installation'}),
+                'status': enum(e.get('status'), {'IN_PROGRESS', 'COMPLETED', 'PARTIAL', 'BLOCKED', 'FAILED'}),
+                'verification': enum(e.get('verification'), {'NOT_RUN', 'PASS', 'PARTIAL', 'FAILED', 'NOT_VERIFIED'}),
+                'evidence_count': count(e.get('evidence')), 'execution_count': count(e.get('execution')),
+                'findings': {s: sum(obj(f).get('status') == s for f in rows(e.get('findings')))
+                             for s in ('OPEN', 'BLOCKED', 'RESOLVED')},
+            } for e in events[:MAX_ITEMS]],
+        })
+    return result
+
+
 def change_summary(evidence):
     risks = {}
     for record in rows(evidence.get('risk_indicators')):
@@ -269,6 +303,7 @@ def export_feedback(repo, output, host, workflow, feedback_type='OTHER', host_ve
     bundle['sanitized-change-summary.json'] = {'input_state': state, 'summary': change_summary(data)}
     data, state = read_json(root, '.smart-test/execution-summary.json')
     execution = {'input_state': state, 'summary': run_summary(data), 'manifests': []}
+    execution['project_work'] = project_summary(root)
     runs = relative_file(root, '.smart-test/runs')
     if runs.exists():
         if not runs.is_dir():
