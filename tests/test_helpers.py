@@ -403,6 +403,15 @@ class ReportTests(Workspace):
         self.assertIn('NO_REQUIRED_REPORT_GROUP', {i['type'] for i in result['issues']})
         self.assertIn('ZERO_TESTS', {i['type'] for i in result['issues']})
 
+    def test_report_group_constraints_have_strict_types(self):
+        for key, value in [('required', 'true'), ('allow_skipped', 1), ('min_tests', True),
+                           ('expected_test_ids', ['Demo#works', 'Demo#works'])]:
+            with self.subTest(key=key):
+                m = self.manifest()
+                m['runs'][0]['reports'][0][key] = value
+                with self.assertRaises(ValueError):
+                    self.result(m)
+
     def test_missing_zero_and_stale_reports_never_pass(self):
         os.utime(self.report, (self.started - 100, self.started - 100))
         self.assertEqual(self.result()['status'], 'NOT_VERIFIED')
@@ -465,6 +474,15 @@ class ReportTests(Workspace):
         m = self.manifest()
         m['runs'][0]['reports'][0]['allow_skipped'] = True
         self.assertEqual(self.result(m)['status'], 'NOT_VERIFIED')
+
+    def test_report_group_constraints_have_strict_types(self):
+        for key, value in [('required', 'true'), ('allow_skipped', 1), ('min_tests', True),
+                           ('expected_test_ids', ['Demo#works', 'Demo#works'])]:
+            with self.subTest(key=key):
+                m = self.manifest()
+                m['runs'][0]['reports'][0][key] = value
+                with self.assertRaises(ValueError):
+                    self.result(m)
 
     def test_example_manifest_is_not_execution_evidence(self):
         m = self.manifest()

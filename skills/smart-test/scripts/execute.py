@@ -18,6 +18,51 @@ from common import atomic_json, emit, relative_file
 from project import checkpoint, fingerprints, head, load, policy, record_path, text, writing, PROJECT
 
 
+REPORT_GROUP_FIELDS = {'pattern', 'required', 'min_tests', 'allow_skipped', 'expected_test_ids'}
+
+
+def normalize_reports(root, reports, kind):
+    """Validate and normalize report groups before execution.
+
+    A string remains a supported shorthand for a required XML group. Mapping
+    form carries the same identity and skip constraints that collect_reports
+    enforces, so the execution path cannot silently discard them.
+    """
+    if not isinstance(reports, list) or (kind == 'test' and not reports):
+        raise ValueError('test execution requires explicit JUnit report patterns')
+    normalized = []
+    seen = set()
+    for value in reports:
+        group = ({'pattern': value, 'required': True} if isinstance(value, str)
+                 else dict(value) if isinstance(value, dict) else None)
+        if group is None or set(group) - REPORT_GROUP_FIELDS:
+            raise ValueError('report groups must be XML pattern strings or supported mappings')
+        pattern = group.get('pattern')
+        text(pattern, 'report pattern')
+        relative_file(root, pattern)
+        if not pattern.endswith('.xml'):
+            raise ValueError('report patterns must select JUnit XML')
+        if pattern in seen:
+            raise ValueError('duplicate report patterns')
+        seen.add(pattern)
+        required = group.get('required', True)
+        if not isinstance(required, bool):
+            raise ValueError('report required must be boolean')
+        minimum = group.get('min_tests', 1)
+        if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 1:
+            raise ValueError('min_tests must be a positive integer')
+        allow_skipped = group.get('allow_skipped', False)
+        if not isinstance(allow_skipped, bool):
+            raise ValueError('allow_skipped must be boolean')
+        expected = group.get('expected_test_ids', [])
+        if (not isinstance(expected, list) or any(not isinstance(item, str) or not item.strip() for item in expected)
+                or len(set(expected)) != len(expected)):
+            raise ValueError('expected_test_ids must be unique nonempty strings')
+        normalized.append({'pattern': pattern, 'required': required, 'min_tests': minimum,
+                           'allow_skipped': allow_skipped, 'expected_test_ids': expected})
+    return normalized
+
+
 @contextmanager
 def execution_lock(root):
     lock = relative_file(root, '.smart-test/execution.lock')
@@ -49,16 +94,7 @@ def validate(root, identity, spec):
     timeout = spec.get('timeout_seconds', 600)
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout <= 86400:
         raise ValueError('timeout_seconds must be positive and at most 86400')
-    reports = spec.get('reports', [])
-    if not isinstance(reports, list) or (kind == 'test' and not reports):
-        raise ValueError('test execution requires explicit JUnit report patterns')
-    for pattern in reports:
-        text(pattern, 'report pattern')
-        relative_file(root, pattern)
-        if not pattern.endswith('.xml'):
-            raise ValueError('report patterns must select JUnit XML')
-    if len(set(reports)) != len(reports):
-        raise ValueError('duplicate report patterns')
+    normalize_reports(root, spec.get('reports', []), kind)
     required = spec.get('required_checks')
     if required is not None and (not isinstance(required, list) or not required or
             any(not isinstance(c, str) or not c.strip() for c in required) or len(set(required)) != len(required)):
@@ -84,6 +120,7 @@ def stop(process):
 def execute(root, identity, spec):
     root = Path(root).resolve()
     before = validate(root, identity, spec)
+    report_groups = normalize_reports(root, spec.get('reports', []), spec.get('kind', 'test'))
     observed_policy = load(relative_file(root, PROJECT, must_exist=True))['policy']
     check_id = spec.get('check_id', 'overall')
     kind = spec.get('kind', 'test')
@@ -115,7 +152,8 @@ def execute(root, identity, spec):
             code, termination = 127, 'START_FAILED'
         finished = datetime.now(timezone.utc)
         groups, seen, blockers = [], set(), []
-        for index, pattern in enumerate(spec.get('reports', [])):
+        for index, requested in enumerate(report_groups):
+            pattern = requested['pattern']
             target = folder / ('reports-' + str(index))
             target.mkdir(mode=0o700)
             for source in sorted(root.glob(pattern)):
@@ -135,7 +173,9 @@ def execute(root, identity, spec):
                         snapshot.chmod(0o600)
                 except OSError:
                     blockers.append({'type': 'REPORT_COPY_FAILED'})
-            groups.append({'pattern': target.relative_to(root).as_posix() + '/*.xml', 'required': True})
+            group = dict(requested)
+            group['pattern'] = target.relative_to(root).as_posix() + '/*.xml'
+            groups.append(group)
         after = {}
         remaining = []
         for name in spec.get('evidence_paths', []):

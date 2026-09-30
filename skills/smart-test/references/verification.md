@@ -29,12 +29,17 @@ JUnit 原生命令优先调用内部执行工具，由 Agent 在项目外临时�
   "check_id": "unit",
   "required_checks": ["unit", "integration"],
   "evidence_paths": ["pom.xml", "src/main/java/OrderService.java", "src/test/java/OrderServiceTest.java"],
-  "reports": ["target/surefire-reports/TEST-*.xml"],
+  "reports": [{
+    "pattern": "target/surefire-reports/TEST-*.xml",
+    "required": true,
+    "min_tests": 1,
+    "expected_test_ids": ["com.example.OrderServiceTest#rejectsNegativeAmount"]
+  }],
   "timeout_seconds": 600
 }
 ```
 
-示例路径、命令和必需项须替换为项目实际范围；仅需 Unit 时不添加 integration。多模块分别列出报告 pattern，每项均须有本轮实际执行的测试。编译输入设置 `kind: "compile"`、`reports: []`。
+示例路径、命令和必需项须替换为项目实际范围；仅需 Unit 时不添加 integration。多模块分别列出报告分组，每项均须有本轮实际执行的测试。`reports` 仍可使用字符串作为简写；需要最少数量、允许跳过或指定测试身份时使用对象形式。编译输入设置 `kind: "compile"`、`reports: []`。
 
 ```text
 python3 <skill-dir>/scripts/execute.py --repo <repo> --id <工作记录id> --input <临时执行输入.json>

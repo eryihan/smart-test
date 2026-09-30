@@ -96,11 +96,29 @@ def collect(root, manifest):
             issues.append({'type': 'NO_REQUIRED_REPORT_GROUP', 'run': run['id']})
         group_results = []
         for group in groups:
-            pattern = group['pattern']
+            if not isinstance(group, dict):
+                raise ValueError('report group must be an object')
+            allowed = {'pattern', 'required', 'min_tests', 'allow_skipped', 'expected_test_ids'}
+            if set(group) - allowed:
+                raise ValueError('unsupported report group fields')
+            pattern = group.get('pattern')
+            if not isinstance(pattern, str) or not pattern.strip():
+                raise ValueError('report pattern must be a nonempty string')
             relative_file(root, pattern)
+            required_group = group.get('required', False)
+            if not isinstance(required_group, bool):
+                raise ValueError('report required must be boolean')
+            allow_skipped = group.get('allow_skipped', False)
+            if not isinstance(allow_skipped, bool):
+                raise ValueError('allow_skipped must be boolean')
             minimum = group.get('min_tests', 1)
-            if not isinstance(minimum, int) or minimum < 1:
+            if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 1:
                 raise ValueError('min_tests must be a positive integer')
+            expected = group.get('expected_test_ids', [])
+            if (not isinstance(expected, list)
+                    or any(not isinstance(item, str) or not item.strip() for item in expected)
+                    or len(set(expected)) != len(expected)):
+                raise ValueError('expected_test_ids must be unique nonempty strings')
             counts = dict.fromkeys(totals, 0)
             test_names = set()
             paths = []
@@ -125,19 +143,18 @@ def collect(root, manifest):
                 for key in counts:
                     counts[key] += result[key]
                 test_names.update(names)
-            if group.get('required') is True:
+            if required_group:
                 executed = counts['tests'] - counts['skipped']
                 if executed < minimum:
                     issues.append({'type': 'REQUIRED_TESTS_MISSING', 'run': run['id'], 'pattern': pattern})
-                if counts['skipped'] and not group.get('allow_skipped', False):
+                if counts['skipped'] and not allow_skipped:
                     issues.append({'type': 'REQUIRED_TESTS_SKIPPED', 'run': run['id'], 'pattern': pattern})
-                expected = group.get('expected_test_ids', [])
                 missing = sorted(set(expected) - test_names)
                 if missing:
                     issues.append({'type': 'EXPECTED_TEST_IDS_MISSING', 'tests': missing})
             for key in totals:
                 totals[key] += counts[key]
-            group_results.append({'pattern': pattern, 'required': group.get('required', False),
+            group_results.append({'pattern': pattern, 'required': required_group,
                                   'counts': counts, 'paths': paths})
         results.append({'id': run['id'], 'kind': kind, 'requires_test_report': requires_test_report,
                         'exit_code': run['exit_code'], 'duration_seconds': end - start,

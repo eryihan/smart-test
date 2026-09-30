@@ -72,6 +72,17 @@ class ExecuteTests(Workspace):
         self.assertFalse((self.root / '.smart-test/project.lock').exists())
         self.assertFalse((self.root / '.smart-test/execution.lock').exists())
 
+    def test_report_identity_constraints_are_carried_into_manifest(self):
+        spec = self.spec()
+        spec['reports'] = [{'pattern': 'target/reports/TEST-*.xml', 'expected_test_ids': ['Order#boundary'],
+                            'min_tests': 1, 'allow_skipped': False}]
+        result = execute(self.root, self.record['id'], spec)
+        manifest = json.loads((self.root / result['manifest']).read_text())
+        group = manifest['runs'][0]['reports'][0]
+        self.assertEqual(group['expected_test_ids'], ['Order#boundary'])
+        self.assertEqual(group['min_tests'], 1)
+        self.assertEqual(result['evidence_status'], 'NOT_VERIFIED')
+
     def test_source_changed_during_run_blocks_evidence_pass(self):
         spec = self.spec('from pathlib import Path; Path("src/order.py").write_text("amount=2")', kind='compile')
         spec['reports'] = []
