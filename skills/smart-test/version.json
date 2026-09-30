@@ -1,4 +1,9 @@
 {
-  "smart_test_version": "0.1.1",
-  "smart_test_commit": null
+  "smart_test_version": "0.1.3",
+  "smart_test_commit": null,
+  "source": {
+    "repository": "https://github.com/eryihan/smart_test",
+    "path": "skills/smart-test",
+    "ref": "main"
+  }
 }

@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / 'skills/smart-test/scripts'
 sys.path.insert(0, str(SCRIPTS))
 import export_feedback as exporter
+PACKAGE_VERSION = json.loads((ROOT / 'skills/smart-test/version.json').read_text())['smart_test_version']
 
 
 class FeedbackExportTests(unittest.TestCase):
@@ -66,7 +67,7 @@ class FeedbackExportTests(unittest.TestCase):
         self.assertEqual(self.export()['status'], 'EXPORTED')
         self.assertEqual(len(list(self.output.iterdir())), 10)
         metadata = self.read('metadata.json')
-        self.assertEqual(metadata['smart_test_version'], '0.1.1')
+        self.assertEqual(metadata['smart_test_version'], PACKAGE_VERSION)
         self.assertEqual(metadata['workflow'], 'changes')
         self.assertEqual(metadata['host'], 'codex')
         self.assertEqual(metadata['host_version'], '1.2.3')
@@ -299,7 +300,7 @@ class FeedbackExportTests(unittest.TestCase):
         (standalone / 'version.json').write_text(json.dumps(package))
         with patch.object(exporter, '__file__', str(standalone / 'scripts/export_feedback.py')):
             version = exporter.version_context()
-        self.assertEqual(version['smart_test_version'], '0.1.1')
+        self.assertEqual(version['smart_test_version'], PACKAGE_VERSION)
         self.assertIsNone(version['smart_test_commit'])
 
     def test_standalone_install_exports_without_plugin_or_git(self):
@@ -312,11 +313,17 @@ class FeedbackExportTests(unittest.TestCase):
                                  '--host', 'claude-code', '--workflow', 'check'],
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stdout)
-        self.assertEqual(self.read('metadata.json')['smart_test_version'], '0.1.1')
+        self.assertEqual(self.read('metadata.json')['smart_test_version'], PACKAGE_VERSION)
         self.assertIsNone(self.read('metadata.json')['smart_test_commit'])
         self.assertEqual(self.read('metadata.json')['host'], 'claude-code')
         self.assertFalse(list(installed.rglob('__pycache__')))
 
+
+    def test_other_agent_can_report_an_update_problem(self):
+        self.export(host='other', workflow='update')
+        metadata = self.read('metadata.json')
+        self.assertEqual(metadata['host'], 'other')
+        self.assertEqual(metadata['workflow'], 'update')
 
 if __name__ == '__main__':
     unittest.main()

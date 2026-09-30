@@ -5,9 +5,9 @@ exporter from silently drifting apart. The values are intentionally plain
 Python objects so the skill remains Python 3.9+ and dependency-free.
 """
 
-WORKFLOWS = ('help', 'init', 'scan', 'changes', 'check', 'pipeline')
+WORKFLOWS = ('help', 'init', 'scan', 'changes', 'check', 'pipeline', 'update')
 
-HOSTS = frozenset({'codex', 'claude-code', 'unknown'})
+HOSTS = frozenset({'codex', 'claude-code', 'other', 'unknown'})
 
 FEEDBACK_TYPES = frozenset({
     'FALSE_PASS', 'FALSE_BLOCKED', 'WRONG_STRATEGY', 'WRONG_SCOPE',

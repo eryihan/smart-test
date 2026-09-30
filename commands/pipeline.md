@@ -1,4 +1,4 @@
 ---
 description: Create or verify a CI candidate from verified test commands
 ---
-Invoke the `smart-test` skill with the `pipeline` mode. Treat any text after this command as a pipeline stage such as `verify` or `finalize`, plus any additional constraints. Follow the skill's CI authorization and validation rules.
+Use `smart-test` mode `pipeline`. Arguments select `verify` or `finalize` and define constraints. Follow the CI validation and application rules.

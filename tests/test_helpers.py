@@ -442,6 +442,39 @@ class InstallTests(Workspace):
                                          '--host', host, '--scope', 'project', '--project', str(self.root)])
                 self.assertTrue((self.root / directory / 'skills/smart-test/SKILL.md').is_file())
 
+    def test_generic_agent_explicit_destination_and_repeat_install(self):
+        parent = self.root / 'custom-agent-skills'
+        command = [sys.executable, str(ROOT / 'tools/install_skill.py'), '--dest', str(parent)]
+        first = json.loads(subprocess.check_output(command))
+        self.assertEqual(first['status'], 'INSTALLED')
+        self.assertTrue((parent / 'smart-test/references/test-design.md').is_file())
+        self.assertEqual(json.loads(subprocess.check_output(command))['status'], 'UNCHANGED')
+        self.assertEqual(installer.contents(parent / 'smart-test'), installer.contents(installer.SOURCE))
+
+    def test_generic_agent_requires_destination_and_dry_run_writes_nothing(self):
+        command = [sys.executable, str(ROOT / 'tools/install_skill.py'), '--host', 'generic']
+        result = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('--dest', json.loads(result.stdout)['error'])
+        parent = self.root / 'custom-agent-skills'
+        result = subprocess.check_output(command + ['--dest', str(parent), '--dry-run'])
+        self.assertEqual(json.loads(result)['status'], 'DRY_RUN')
+        self.assertFalse(parent.exists())
+
+    def test_generic_agent_replace_preserves_customized_installation(self):
+        parent = self.root / 'custom-agent-skills'
+        command = [sys.executable, str(ROOT / 'tools/install_skill.py'), '--dest', str(parent)]
+        subprocess.check_output(command)
+        target = parent / 'smart-test'
+        (target / 'SKILL.md').write_text('local customization')
+        refused = subprocess.run(command, capture_output=True, text=True)
+        self.assertEqual(refused.returncode, 2)
+        self.assertEqual((target / 'SKILL.md').read_text(), 'local customization')
+        updated = json.loads(subprocess.check_output(command + ['--replace']))
+        self.assertEqual((Path(updated['backup']) / 'SKILL.md').read_text(), 'local customization')
+        self.assertNotEqual(Path(updated['backup']).parent, parent)
+        self.assertEqual(installer.contents(target), installer.contents(installer.SOURCE))
+
     def test_installed_read_only_helpers_do_not_write_bytecode(self):
         parent = self.root / '.agents/skills'
         installer.install(parent)

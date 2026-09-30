@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install the same skill directory into Codex or Claude Code without dependencies."""
+"""Install the portable skill into an Agent's explicit skills directory."""
 import argparse
 from datetime import datetime, timezone
 import hashlib
@@ -76,7 +76,8 @@ def install(parent, replace=False, dry_run=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--host', choices=['codex', 'claude'], required=True)
+    parser.add_argument('--host', choices=['codex', 'claude', 'generic'],
+                        help='optional with --dest; codex/claude provide known defaults')
     parser.add_argument('--scope', choices=['user', 'project'], default='user')
     parser.add_argument('--project', type=Path, help='required for project scope')
     parser.add_argument('--dest', type=Path, help='override the parent skills directory')
@@ -86,6 +87,8 @@ def main():
     try:
         if args.dest:
             parent = args.dest
+        elif args.host not in {'codex', 'claude'}:
+            raise ValueError('pass --dest for a generic Agent; no installation directory is guessed')
         elif args.scope == 'project':
             if not args.project or not args.project.is_dir():
                 raise ValueError('project scope requires an existing --project directory')

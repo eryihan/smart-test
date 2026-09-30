@@ -1,4 +1,4 @@
 ---
-description: Initialize smart_test for the current Java repository
+description: Plan and set up testing from the current backend repository's actual stack
 ---
-Invoke the `smart-test` skill with the `init` mode. Treat any text after this command as additional user constraints. Follow the skill's authorization boundaries and repository workflow.
+Use `smart-test` mode `init`. Arguments define scope and constraints. Select facilities from the actual project stack and follow the skill workflow.

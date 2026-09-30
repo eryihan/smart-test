@@ -1,4 +1,4 @@
 ---
 description: Analyze current changes and add risk-focused tests
 ---
-Invoke the `smart-test` skill with the `changes` mode. Treat any text after this command as additional scope or constraints. Follow the skill's rules for repository state, authorization, implementation, and verification.
+Use `smart-test` mode `changes`. Arguments define scope and constraints. Review the actual diff, preserve workspace changes, and implement and verify within authorization.
