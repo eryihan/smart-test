@@ -2,17 +2,17 @@
 
 ## pipeline
 
-按 [项目规范与工作记录](artifacts.md#项目规范与工作记录) 接续或开始 pipeline 任务，从用户目标、仓库已有构建/CI、生效测试规范和实际运行记录确定命令、套件与环境要求。没有 policy/plan/Oracle 文件不妨碍生成候选；已有适用要求仍须继承。项目运行时/build 版本、Runner/网络/容器条件和 secret 引用分别记录来源，未知项明确列出；按项目技术栈选择命令。
+按本次范围及 [资料规则](artifacts.md) 处理 pipeline 任务，从用户目标、仓库已有构建/CI、生效测试规范和实际运行记录确定命令、套件与环境要求。复用项目已有规范与业务依据，不要求独立管理文件。项目运行时/build 版本、Runner/网络/容器条件和 secret 引用分别记录来源，未知项明确列出；按项目技术栈选择命令。
 
 本地缺数据库但需要借助 CI 验证时，可先生成草稿并标 `command_verification: NOT_VERIFIED`、`provider_execution: NOT_RUN`，列出未执行套件与环境前提。没有可信命令来源或必要业务选择未定时，只生成可确定部分并标明缺口，草稿保留未验证状态，finalize 前须补齐验证。
 
-生成或更新本次实际消费的结构化产物时，按 [artifacts.md](artifacts.md) 选择校验文件，不固定要求五类产物。输入结构错误先修复并重验；BLOCKED 状态可用于生成受限草稿，原阻塞继续保留；candidate 与当前版本一致才可复用。
+核对实际消费的配置和依据。BLOCKED 可交付受限草稿，原阻塞继续保留；candidate 与当前版本一致才可复用。
 
 没有指明 provider 时复用仓库已有 provider；没有 CI 且用户未指定时，先给候选选择及理由，未获授权不改正式位置。支持 GitHub Actions、GitLab CI；其他 provider 依据其现有约定生成并说明验证边界，不伪造 provider 已验证。
 
-命令、配置和正式 CI 必须脱离 skill 安装目录运行，使用项目 wrapper、构建 task 或项目脚本。候选生成、修改与分项验证及时追加工作记录。
+命令、配置和正式 CI 必须脱离 skill 安装目录运行，使用项目 wrapper、构建 task 或项目脚本。候选生成、修改与分项验证说明真实状态，需接续的事项进入当前入口。
 
-候选文件写 `.smart-test/ci-candidate/github-actions.yml` 或 `gitlab-ci.yml`，验证结果放工作记录，独立复用时再保存同目录 Markdown。随附来源命令与已有 run IDs（未执行时明确无 run）、工作树指纹、每个 job 的命令和 suite、runner 要求、secrets 名称、报告路径、状态。分别记录 `command_verification`、`syntax_validation`、`provider_execution`，使用 VERIFIED / FAILED / UNKNOWN / NOT_RUN / NOT_VERIFIED；候选生成与三类验证分别记录。
+候选文件写 `.smart-test/ci-candidate/github-actions.yml` 或 `gitlab-ci.yml`，验证结果在当前任务说明，需要独立审阅/接续时才保存同目录 Markdown。随附来源命令与已有 run IDs（未执行时明确无 run）、工作树指纹、每个 job 的命令和 suite、runner 要求、secrets 名称、报告路径、状态。分别记录 `command_verification`、`syntax_validation`、`provider_execution`，使用 VERIFIED / FAILED / UNKNOWN / NOT_RUN / NOT_VERIFIED；候选生成与三类验证分别记录。
 
 按实际需求映射：
 
@@ -40,6 +40,8 @@
 
 ## pipeline finalize
 
-重新核查当前约定、验证版本、完整所需验证结果和 candidate checks；启用账本时同时核查决策。只有完整所需命令已在本地或等价 CI 环境验证、结构/语法检查通过、必要 Runner 能力有证据时，生成应用到现有 CI 的最小 patch，保留其他 job/trigger/secrets/权限/缓存设置；不覆盖整个原文件。标注 provider 实跑状态和剩余环境条件。
+重新核查当前约定、验证版本、完整所需结果和 candidate checks。只有完整所需命令已在本地或等价 CI 环境验证、结构/语法检查通过、必要 Runner 能力有证据时，生成应用到现有 CI 的最小 patch，保留其他 job/trigger/secrets/权限/缓存设置；不覆盖整个原文件。标注 provider 实跑状态和剩余环境条件。
 
-未满足前提时交付草稿及明确缺口，finalize 保持未完成状态。默认交付 patch 与建议，不直接覆盖正式 CI。已有用户明确授权安装该已验证变更时应用补丁，并做相应检查；否则只在具体 patch 就绪后请求批准。用户拒绝后停止该方案。CI 内容、测试命令或前提发生变化，按受影响范围重新验证；启用账本时同时更新失效记录。为获得首次远端执行而安装草稿，必须有用户针对未验证候选及其范围的明确授权，保持未验证标记，finalize 保持未完成状态。
+未满足前提时交付草稿及明确缺口，finalize 保持未完成状态。默认交付 patch 与建议，不直接覆盖正式 CI。已有用户明确授权安装该已验证变更时应用补丁，并做相应检查；否则只在具体 patch 就绪后请求批准。用户拒绝后停止该方案。CI 内容、测试命令或前提发生变化，按受影响范围重新验证；长期约定或未完成事项受影响时更新相关部分。为获得首次远端执行而安装草稿，必须有用户针对未验证候选及其范围的明确授权，保持未验证标记，finalize 保持未完成状态。
+
+候选应用或取消后，核对正式配置及剩余事项，将必要来源与验证限制交给项目当前入口，再按留存规则清理本轮候选和重复说明。不把应用成功当 provider 实跑成功。
