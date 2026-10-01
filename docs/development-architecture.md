@@ -1,14 +1,10 @@
 # smart_test 开发架构
 
-用户操作见 [随包帮助](../skills/smart-test/references/help.md)，分发和验证见 [development.md](development.md)。
+本文件供维护者定位职责和修改位置。安装与使用见 [README](../README.md)，验证和分发见 [development.md](development.md)。
 
 ## 目标与默认路径
 
-帮助项目搭建、优化并持续维护测试体系。普通路径为范围 → 行为与现有保护 → 测试选择/实施 → 原生执行 → 结果与剩余事项。局部任务无需 init、管理登记、任务 ID 或阶段 JSON。
-
-搭建与全仓优化深入评估，日常维护只处理相关部分。成熟参考按规则、接口、持久化/事务、异步/并发、契约、关键流程及执行保障提供能力选择，不固定测试比例、不预装全部工具。建议关联项目事实、风险、所需证据和成本。
-
-业务资料优先复用；无文档时恢复任务所需行为，区分代码观察、已确认规则与未知。完整业务地图只作为明确专项，不自动变为 skill 的长期维护责任。
+共用 skill 根据项目事实处理范围、行为与现有保护、测试选择/实施、原生执行和交付。搭建或全仓优化深入评估，局部任务只处理相关部分；用户与项目已有约束继续适用。具体运行规则由 [SKILL.md](../skills/smart-test/SKILL.md) 及其 references 维护。
 
 ## 职责边界
 
@@ -17,39 +13,40 @@
 | Agent/提示词 | 业务依据、风险、测试边界、授权核对、失败归因、资料维护 | 源码不自动等于正确预期，自述不能证明授权 |
 | 可选 Python 工具 | 静态事实查询、进程与报告采集、XML 计数/身份检查、白名单导出 | 不判业务充分性，工具通过不等于项目 PASS |
 | 项目原生设施 | 编译、测试发现、真实依赖验证、CI | 结果限定于实际版本、范围、配置与环境 |
-| 项目长期资料 | 生效约定、当前未完成事项、必要证据 | 按需生成、有限留存，历史不承担日常状态计算 |
+| 项目长期资料 | 生效约定、当前未完成事项、必要验证依据 | 按需生成、有限留存，历史不承担日常状态计算 |
 
-执行工具独立于项目登记；报告读取独立于执行；记录需求不改变执行授权。测试、fixture、构建、项目脚本与正式 CI 脱离安装目录运行。
+测试、fixture、构建、项目脚本与正式 CI 从交付起脱离安装目录运行。辅助工具独立于项目登记；记录需求不改变执行授权。
 
 ## 工具
 
-- inspect_repo.py：按路径查询 overview/build/tests/changes。默认紧凑输出；详细输出按需 --details。保留静态模块提示，Maven effective model、Gradle 动态代码、符号图与业务含义由 Agent 核查。
-- execute.py：独立采集已授权 argv、时间、原生退出码/终止原因、声明的报告和证据变化。默认不保存管理文件，必要时 --save-evidence。互斥防报告覆盖；POSIX 终止进程组。
-- collect_reports.py：有 manifest 时检查窗口、分组、身份与最少数量；直接 --report 时仅输出报告事实，freshness UNKNOWN。零测试/旧报告不能供当前 PASS。
-- export_feedback.py：只导出版本与相关/近期运行的白名单摘要。自然语言反馈无需导出。
-- common.py/catalog.py：上述工具共用的路径边界、原子写入、Git 和枚举。没有独立运行流程。
-- tools/：安装和可复现打包，不进入业务执行路径。
+- `inspect_repo.py` 查询范围内的静态事实；Maven effective model、Gradle 动态逻辑和业务含义由 Agent 核查。调用见 [范围发现](../skills/smart-test/references/workflows.md#repository-discovery--doctor)。
+- `execute.py` 采集原生命令、时间、退出码/终止原因、声明的报告与证据变化。互斥防报告覆盖，POSIX 终止进程组，快照按需保存。调用见 [执行与证据](../skills/smart-test/references/verification.md#执行与证据)。
+- `collect_reports.py` 读取报告；有真实 manifest 才检查执行窗口、分组与身份，直接读报告时 freshness 为 UNKNOWN。调用同见执行与证据。
+- `export_feedback.py` 导出白名单版本与运行摘要；现场文本反馈无需附件。调用见 [诊断附件](../skills/smart-test/references/feedback.md#可选诊断附件)。
+- `common.py` / `catalog.py` 提供路径边界、原子写入、Git 和枚举，没有独立流程。
+- `tools/` 提供本地安装与可复现打包，不进入业务项目的测试执行路径。
 
-运行工具不维护项目登记、审批账本或阶段状态。报告中的必需分组与执行窗口由工具检查；业务、风险与资料维护由提示词指导 Agent 判断。
+## 文档归属
 
-## 资料和接续
+| 内容 | 修改位置 | 读取时机 |
+|---|---|---|
+| 安装与首次使用 | [README.md](../README.md) | 用户初次接触项目 |
+| 触发描述、共用判断、按需路由 | [SKILL.md](../skills/smart-test/SKILL.md) | 宿主发现和调用 skill |
+| 入口用法与结果解释 | [help.md](../skills/smart-test/references/help.md) | 用户询问帮助 |
+| 用例设计、Java 实施、执行、覆盖率、CI | [专项导航](../skills/smart-test/SKILL.md#入口与按需知识) | 任务涉及相应能力 |
+| 项目资料的保存、更新与清理 | [artifacts.md](../skills/smart-test/references/artifacts.md) | 资料发生变化或需要接续 |
+| 工具职责与扩展边界 | 本文件 | 修改实现或组织文档 |
+| 本地验证、安装、打包与发布 | [development.md](development.md) | 开发和分发 |
+| 现场反馈与维护者回归处理 | [现场反馈](../skills/smart-test/references/feedback.md)、[维护者回归](../feedback/README.md) | 整理反馈或修复实际问题 |
 
-长期测试约定归入现有正式规范；命令引用项目入口，业务依据引用原文。需分批接续的缺口进入一个当前入口，不从全部历史记录重建。必要证据优先引用原生报告/CI，覆盖或诊断需要时保存快照。实际命令和计数不能估计，缺时间/版本依据保持未知。
+安装包内的资料不得依赖包外 docs；所有专项从 SKILL.md 可直接找到。commands/ 只转发入口，不复制工作流程。跨文档需要同一规则时，用短说明和链接定位详细规则，避免各自维护一套。
 
-长期约定、执行入口、待办或业务依据变化时处理相关部分，收尾只核对本轮内容。措辞变更不自动使验证失效；实际测试要求改变后按范围补验。失败/中断保留真实结果与恢复信息。
-
-证据按期限、数量与容量约束；当前依赖与审计证据先核对，正常清理与损坏分开。只清理归属明确的生成资料，不全仓扫描旧文档。已有规范、当前待办中的约束、拒绝与未完成必需验证继续适用。
-
-## 知识组织
-
-SKILL.md 保存共同流程、必要边界与按需路由。workflows/test-design/java-testing/verification/coverage/ci 分别保存入口、方法、专项、执行、门禁和 CI。artifacts 保存资料职责、触发更新与留存；help/feedback 保存用户操作。
-
-runtime references 不引用安装包外 docs。commands/ 只转发入口，不复制流程。新增文件和工具必须对应真实消费者或确定性缺口。
+项目约定、当前事项与必要证据的机制由 [artifacts.md](../skills/smart-test/references/artifacts.md) 维护；本文件不再重复具体留存与状态规则。新增文件或工具应有实际消费者，不为凑齐目录结构添加空文件。
 
 ## 验证和分发
 
-工具回归保留失败、超时、中断、零测试、陈旧/覆盖报告、身份约束、并发和路径边界；新增独立执行、直接报告读取、范围查询和轻量导出。不以工具结果代替授权、业务依据与必需验证。
+工具回归验证确定性实现；宿主验收观察实际调用、diff、产物与最终结论。evals 是场景清单，未执行不能当作通过证据。验证范围与 fixture 用法见 [开发验证](development.md#开发验证)。
 
-宿主验收观察实际工具调用、diff、报告、约束与结果；用隔离合成 fixture，不在业务源码制造缺陷。清单和脚本通过不证明模型执行正确；未执行的场景明确 NOT_RUN。evals 是清单，不是通过证明。
+各宿主共用源码。内容版本同步 skill/plugin，安装更新保护来源与定制；分发方式见 [目录与分发方式](development.md#目录与分发方式)。
 
-各宿主共用源码。内容版本同步 skill/plugin，安装更新保护来源和定制，卸载分别报告项目交接与包移除。测试资产从交付时独立，不依赖卸载钩子。
+组织方式参考 [OpenAI skill 文档](https://learn.chatgpt.com/docs/build-skills)和 [Anthropic 编写指南](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices)：入口保留共用判断，条件细节按需读取，脚本承担确定性操作。

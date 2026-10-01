@@ -1,6 +1,6 @@
 ---
 name: smart-test
-description: "帮助后端项目搭建、优化并持续维护测试体系：评估已有测试，按业务风险补强用例，执行诊断并接入 CI。支持命令和自然语言；当前专项实现为 Java / Spring。"
+description: "用于后端仓库的测试搭建、断言评估、变更补测、失败诊断和 CI 测试接入。当前专项为 Java/Spring；其他后端栈复用原生设施。纯概念或代码解释、仅修改生产逻辑和前端浏览器测试不适用。"
 license: Apache-2.0
 ---
 
@@ -30,6 +30,8 @@ license: Apache-2.0
 
 ## 入口与按需知识
 
+按入口定位对应章节，再按实际风险补读专项；无需一次读完所有资料。
+
 | 入口 | 行为 | 读取 |
 |---|---|---|
 | help | 只读说明用法，不扫描项目 | [help.md](references/help.md) |
@@ -42,7 +44,7 @@ license: Apache-2.0
 | update | 沿原渠道更新安装包，不处理后端项目 | [help.md 更新](references/help.md#更新-skill) |
 | uninstall | 交接项目能力与剩余事项，再沿原渠道卸载 | [help.md 交接](references/help.md#退出管理与卸载) |
 
-自然语言与命令复用同一流程；pipeline verify/finalize 是内部阶段。设计用例或评估断言时读 [test-design.md](references/test-design.md)，Java 实施时读 [java-testing.md](references/java-testing.md)。覆盖率要求存在时读 [coverage.md](references/coverage.md)，用户要求反馈时读 [feedback.md](references/feedback.md)。
+自然语言与命令复用同一流程；pipeline verify/finalize 是内部阶段。设计用例或评估断言时读 [test-design.md](references/test-design.md)。普通 Java 单测沿用已有设施；框架/构建变更、Spring 或数据库测试按 [java-testing.md](references/java-testing.md) 定位相关章节。覆盖率要求存在时读 [coverage.md](references/coverage.md)，用户要求反馈时读 [feedback.md](references/feedback.md)。
 
 ## 控制项与工具
 

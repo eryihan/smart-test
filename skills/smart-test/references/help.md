@@ -2,6 +2,8 @@
 
 help 按主题说明用法；仅阅读帮助，不扫描项目或写文件。
 
+按问题定位：[入口](#工作入口)、[控制项](#常用控制项)、[结果](#结果和产物)、[状态](#项目状态)、[更新](#更新-skill)、[卸载](#退出管理与卸载)。安装步骤属于宿主操作；本文件随 skill 分发，安装后仍可独立使用。
+
 ## 调用方式
 
 Codex：`$smart-test <入口>`。Claude 插件：`/smart-test:<入口>`，兼容 `/smart-test:smart-test <入口>`。其他兼容宿主使用原生调用方式。也可直接说“补这次金额改动的测试”“评估现有测试体系”“更新 smart-test”。
@@ -66,9 +68,7 @@ $smart-test status
 
 ## 反馈
 
-在使用现场直接描述问题，Agent 生成可提交的脱敏说明，包含版本、任务、实际/期望行为及最小复现。无需克隆维护仓库或手工找脚本。按实际安装来源提供反馈入口，默认上游为 [GitHub Issues](https://github.com/eryihan/smart_test/issues)；fork 或私有源遵守其渠道。提交需要用户明确要求，不自动上传。
-
-仅定位需要时导出白名单诊断附件，用户指定项目外新目录，方法见 [feedback.md](feedback.md)。没有附件也可以反馈，不为导出补造项目资料。
+直接说“刚才这个处理不对，帮我整理反馈”，即可获得可复制的脱敏说明；无需克隆维护仓库。版本、最小复现、来源渠道与可选附件按 [feedback.md](feedback.md) 处理，提交需要用户明确要求。
 
 ## 项目状态
 
@@ -87,6 +87,14 @@ uninstall 先交接当前项目再卸载安装包；dry-run 只展示动作。�
 5. 沿原宿主管理器与范围卸载，不手删管理器缓存。支持保留数据时采用该选项；独立安装只移除确认的 skill 目录，保护未迁出的定制。项目交接与安装包移除分别报告成功、失败和下一步。
 
 原生卸载没有交接钩子，项目从交付起应独立可用。重新安装先核对团队后续修改和未完成事项，继续维护，不重新搭建整套设施。
+
+只移除 Claude 插件安装包时，可使用：
+
+```bash
+claude plugin uninstall smart-test@smart-test --keep-data
+```
+
+项目级操作增加 `--scope project`；`--keep-data` 保留插件自身的持久数据，不代替项目交接。Codex 独立安装只移除已确认的 skill 目录，保留项目测试资产。
 
 ## 更新 skill
 
@@ -114,6 +122,8 @@ Claude 默认市场安装示例：
 claude plugin marketplace update smart-test
 claude plugin update smart-test@smart-test
 ```
+
+更新项目级安装时，第二条命令增加 `--scope project`。更新后重新加载插件或开启新会话。第三方市场默认不自动更新，需要时可在 `/plugin` 的 Marketplaces 页启用；自动更新后仍按宿主提示重载。
 
 Codex 的 skill-installer 拒绝覆盖已有目录。先校验候选并备份旧目录，再按原来源安装，失败恢复；其他独立安装采用目录替换。源码/离线安装器的 `--replace` 会备份旧目录，执行前仍须检查定制。
 

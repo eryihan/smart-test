@@ -1,18 +1,14 @@
 # smart_test
 
-smart_test 是企业级后端项目的测试助手，搭建、优化并持续维护项目测试体系：根据实际语言、运行时、架构、业务风险和已有设施选择测试方案，评估测试缺口、补测试、执行诊断并生成 CI 候选。
+smart_test 帮助后端项目评估现有测试、为变更补测、诊断失败和接入 CI。Agent 根据业务风险、运行时和已有设施选择测试边界，优先补强现有用例，并报告实际验证结果与剩余缺口。
 
-当前专项实现覆盖 Java 8+、Spring Boot 2/3、Maven/Gradle。其他语言支持按实际项目逐步扩展。数据库、中间件测试使用隔离环境，结果列明未执行范围。
+当前专项覆盖 Java 8+、Spring Boot 2/3、Maven/Gradle；其他后端技术栈按原生设施处理，专项能力尚未验证。数据库和中间件测试使用隔离环境。
 
-采用 [Agent Skills 目录格式](https://agentskills.io/specification)，兼容该格式的 Agent 可安装同一份 `skills/smart-test`。Codex 和 Claude Code 是已提供的安装示例，核心流程不依赖它们的专属能力。
+采用 [Agent Skills 目录格式](https://agentskills.io/specification)，兼容宿主共用 `skills/smart-test`。项目中的测试、构建、fixture、脚本和正式 CI 独立于 skill 安装目录运行。
 
-许可证：[Apache License 2.0](LICENSE)，随独立 skill 包分发。
+## 安装
 
-## 1. 安装
-
-通过宿主安装，无需克隆仓库或运行 Python 脚本。
-
-### 1.1 在 Codex 中安装
+### Codex
 
 在 Codex 对话中发送：
 
@@ -20,9 +16,9 @@ smart_test 是企业级后端项目的测试助手，搭建、优化并持续维
 $skill-installer 请安装 https://github.com/eryihan/smart_test/tree/main/skills/smart-test
 ```
 
-Codex 内置的 `skill-installer` 会从 GitHub 下载并安装 `skills/smart-test`。安装完成后，开启新会话，或等待当前会话刷新技能列表。
+安装后开启新会话；技能列表仍未刷新时重启 Codex。在目标后端仓库中请求 `$smart-test help`，确认实际加载路径、版本和安装来源。
 
-### 1.2 在 Claude Code 中安装
+### Claude Code
 
 在 Claude Code 会话中执行：
 
@@ -31,142 +27,74 @@ Codex 内置的 `skill-installer` 会从 GitHub 下载并安装 `skills/smart-te
 /plugin install smart-test@smart-test
 ```
 
-也可以在终端执行：
-
-```bash
-claude plugin marketplace add eryihan/smart_test
-claude plugin install smart-test@smart-test
-```
-
-默认安装范围是当前用户。只在当前项目启用时，在项目目录执行：
+终端也可使用 `claude plugin marketplace add eryihan/smart_test` 和 `claude plugin install smart-test@smart-test`。默认安装到用户范围；仅在当前项目启用时，在项目目录执行：
 
 ```bash
 claude plugin install smart-test@smart-test --scope project
 ```
 
-安装完成后重启会话，或执行 `/reload-plugins`。Claude Code 中的调用名带插件命名空间：
+安装后重启会话或执行 `/reload-plugins`。使用 `claude plugin list` 查看启用状态，`claude plugin details smart-test` 查看组件；随后请求 `/smart-test:help`。
+
+本仓库提供第三方插件市场。插件调用使用 `/smart-test:<入口>`，兼容 `/smart-test:smart-test <入口>`；独立 skill 与插件择一安装，避免重复发现。
+
+### 其他 Agent 与离线安装
+
+通过宿主安装功能，从 `https://github.com/eryihan/smart_test/tree/main/skills/smart-test` 安装完整目录，或把离线包中的 `smart-test/` 放入宿主指定的 skills 目录。按宿主方式调用和刷新，并确认实际加载路径与版本。
+
+维护源码、自定义目录和离线安装见 [开发与分发](docs/development.md#本地脚本安装)。实施和验证需具备相应文件、命令与环境权限。
+
+## 开始使用
+
+在目标后端仓库中直接描述任务，例如：
 
 ```text
-/smart-test:smart-test init
+只补 order 模块的金额边界测试；拒绝后不能写订单或扣额度。
 ```
 
-插件提供 `/smart-test:help|init|scan|changes|check|pipeline|status|update|uninstall`，也兼容 `/smart-test:smart-test <模式>`。
-
-本仓库提供第三方 Claude Code 插件市场。
-
-### 1.3 其他 Agent
-
-按宿主的 skill 安装功能，从 `https://github.com/eryihan/smart_test/tree/main/skills/smart-test` 安装完整目录，或将离线包中的 `smart-test/` 放入宿主指定的 skills 目录。不自行猜测安装路径；其他 Agent 不需要 Claude 插件清单或 Codex 界面配置。
-
-维护源码或离线安装时，可显式指定目录，不必指定宿主品牌：
-
-```bash
-python3 tools/install_skill.py --dest <Agent的skills目录>
-```
-
-按宿主方式调用和刷新，确认已加载的 `SKILL.md` 路径与版本。实施和验证需具备相应文件、命令与环境权限。
-
-## 2. 安装验证
-
-### 2.1 验证 Codex
-
-在 Codex 中发送：
-
-```text
-列出当前可用的 smart-test skill，并确认它来自 eryihan/smart_test。
-```
-
-如果 skill 已加载，Codex 可以识别 `$smart-test` 并执行后续工作模式。
-
-### 2.2 验证 Claude Code
-
-在终端执行：
-
-```bash
-claude plugin list
-claude plugin details smart-test
-```
-
-确认插件状态为 enabled，组件列表中包含一个名为 `smart-test` 的 skill。
-
-## 3. 开始使用
-
-在目标后端仓库中启动宿主，直接描述任务。补当前改动或运行已有测试不要求先 init；当前完整专项指导为 Java。调用示例：
+也可以使用明确入口：
 
 ```text
 Codex:       $smart-test changes
 Claude Code: /smart-test:changes
 ```
 
-也可直接指定范围与规则，例如“只补 order 模块的金额边界测试；拒绝后不能写订单或扣额度”。skill 会先检查已有测试，选择能验证该行为的边界，再补强或新增测试并运行。
+补当前改动或运行已有测试可直接开始，无需先 `init`。只分析时明确说“不修改、不执行”，或使用 `changes --dry-run`。搭建设施用 `init`，评估存量缺口用 `scan`，执行已有测试用 `check`，生成 CI 候选用 `pipeline`，查看待办与已有证据用 `status`。
 
-只分析时明确说“不修改、不执行”，或使用 `changes --dry-run`。搭建测试设施用 `init`，找存量缺口用 `scan`，运行已有测试用 `check`，生成 CI 候选用 `pipeline`，查看进展和待办用 `status`。
+Agent 先检查已有测试与业务依据，再补强或新增用例。Unit 与数据库集成分别报告；环境受阻时列出未执行范围。已有规范和待办直接复用，运行证据优先使用原生报告或 CI，需要接续或复核时才保存资料。
 
-完整调用方式、控制项、覆盖率、结果解释和典型请求统一见 [使用指南](skills/smart-test/references/help.md)。安装后可直接请求帮助：
+完整入口、控制项、结果解释和典型请求见 [使用指南](skills/smart-test/references/help.md)。安装后可请求 `$smart-test help` 或 `/smart-test:help`。
 
-```text
-Codex:       $smart-test help
-Claude Code: /smart-test:help
-```
+## 更新和卸载
 
-已有规范直接复用，搭建或长期约定形成时才补充；局部任务无需 init、项目登记或任务 ID。需要跨任务接续的缺口进入项目现有待办，运行证据优先使用原生报告和 CI，必要时才保存快照。普通任务不生成整套画像、阶段记录或审批账本；Python 工具按需使用。Unit 与数据库集成分别报告结果。资料维护和有限留存见 [项目资料](skills/smart-test/references/artifacts.md)。
-
-用户只需给出测试目标与范围，Agent 负责选择方案、维护规范、记录和交付。测试代码、构建、执行脚本和正式 CI 留在项目原生位置，可独立于 skill 运行。
-
-## 4. 更新和卸载
-
-维护入口：`update` 更新安装包，`uninstall` 交接当前项目并卸载。交接保留成熟测试框架、规范、未完成事项与必要证据，解除对 skill 安装路径的依赖；安装包卸载与项目交接分别报告。具体步骤见 [退出管理与卸载](skills/smart-test/references/help.md#退出管理与卸载)。
-
-```text
-Codex:       $smart-test uninstall
-Claude 插件: /smart-test:uninstall
-```
-
-快捷更新可直接对 Agent 说“更新 smart-test”，或使用：
+直接说“更新 smart-test”，或使用：
 
 ```text
 Codex:       $smart-test update
-Claude 插件: /smart-test:update
-其他 Agent:  按宿主方式调用 smart-test update
+Claude Code: /smart-test:update
 ```
 
-更新沿用原安装来源和范围，检查本地定制，保留备份并核对新版本；不修改目标项目的业务代码、测试配置或 `.smart-test/`。完整规则与离线/失败处理集中在 [更新说明](skills/smart-test/references/help.md#更新-skill)。旧版尚无 update 入口时，先用原安装渠道升级一次。
+更新沿用原安装来源与范围，并保护本地定制。具体步骤、宿主原生命令和失败恢复见 [更新说明](skills/smart-test/references/help.md#更新-skill)。
 
-### 4.1 Claude Code
+卸载使用 `$smart-test uninstall` 或 `/smart-test:uninstall`，先交接当前项目，再移除安装包。只移除安装包时按指定范围操作，项目测试资产仍保留。宿主原生命令与交接边界见 [退出管理与卸载](skills/smart-test/references/help.md#退出管理与卸载)。
 
-```bash
-claude plugin marketplace update smart-test
-claude plugin update smart-test@smart-test
-```
+## 反馈
 
-更新后重新加载插件或开启新会话。推荐使用 skill 的 uninstall 先交接；只移除安装包时可用宿主命令：
+在使用现场说“刚才这个处理不对，帮我整理反馈”。Agent 整理脱敏的任务、实际/期望行为、依据、版本和最小复现，并按安装来源提供反馈入口；默认上游为 [GitHub Issues](https://github.com/eryihan/smart_test/issues)。提交需要明确授权，诊断附件按需提供。
 
-```bash
-claude plugin uninstall smart-test@smart-test --keep-data
-```
+操作方法见 [反馈说明](skills/smart-test/references/feedback.md)，维护者处理见 [反馈与回归](feedback/README.md)。
 
-项目级操作增加 `--scope project`。
+## 文档导航
 
-### 4.2 Codex
+| 想了解什么 | 阅读位置 |
+|---|---|
+| 调用入口、控制项、状态、更新和卸载 | [使用指南](skills/smart-test/references/help.md) |
+| Agent 如何处理测试任务 | [SKILL.md](skills/smart-test/SKILL.md)，按任务读取其中链接的 references |
+| 项目资料何时保存、更新和清理 | [资料与留存](skills/smart-test/references/artifacts.md) |
+| 源码职责、文档归属和扩展方式 | [开发架构](docs/development-architecture.md) |
+| 本地验证、离线安装、打包和发布 | [开发与分发](docs/development.md) |
 
-在 Codex 中发送：
+维护资料和历史验证结果留在源码仓库或本地报告中；独立安装包只包含 `skills/smart-test/`，Claude 插件另使用 `.claude-plugin/` 和 `commands/`。项目专项报告、原始日志与运行证据保留在被 Git 忽略的 `reports/`。
 
-```text
-$smart-test update
-```
+许可证：[Apache License 2.0](LICENSE)，随独立 skill 包分发。
 
-使用 `$smart-test uninstall` 完成交接，再按宿主规则移除已确认的 skill 目录。直接移除安装包不会执行项目交接，但项目内的测试代码、规范与必要资料仍保留。
-
-Claude 的第三方市场默认不自动更新；需要时可在 `/plugin` 的 Marketplaces 页开启该市场的自动更新。自动更新后的当前会话仍需按提示重新加载。[Claude 更新机制](https://code.claude.com/docs/en/discover-plugins#keep-plugins-updated)
-
-## 5. 使用问题反馈
-
-在使用现场直接说“刚才这个处理不对，帮我整理反馈”。Agent 生成可提交的脱敏说明并按安装来源提供反馈入口，默认上游为 [GitHub Issues](https://github.com/eryihan/smart_test/issues)。无需克隆维护仓库；提交须明确授权。仅定位需要时导出诊断附件，不自动上传。用户操作见 [反馈说明](skills/smart-test/references/feedback.md)，维护者处理见 [feedback/README.md](feedback/README.md)。
-
-## 6. 维护者资料
-
-[开发架构](docs/development-architecture.md) 说明 Agent、辅助工具和目标项目的职责及扩展边界；[开发与分发](docs/development.md) 说明验证、离线安装和打包。二者随代码维护，不进入独立 skill 安装包。历史验证结果仅对应其记录的版本。
-
-公开仓库保留测试、评测 fixture、分发工具和脱敏反馈；项目专项报告、原始日志与运行证据保留在本地的 `reports/`，不提交。独立 skill 包只包含 `skills/smart-test/`；Claude 插件另使用 `.claude-plugin/` 和 `commands/`。
-
-安装机制参考 [Claude Code 插件安装](https://code.claude.com/docs/en/plugins/install)、[Claude Code 插件市场](https://code.claude.com/docs/en/plugin-marketplaces) 和 [OpenAI 官方 skill-installer](https://github.com/openai/skills/tree/main/skills/.system/skill-installer)。
+官方参考：[OpenAI skill 文档](https://learn.chatgpt.com/docs/build-skills)、[OpenAI 当前插件示例](https://github.com/openai/plugins)、[Anthropic skill 示例](https://github.com/anthropics/skills)、[Claude Code 插件安装](https://code.claude.com/docs/en/plugins/install)与[插件市场](https://code.claude.com/docs/en/plugin-marketplaces)。
