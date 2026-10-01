@@ -1,9 +1,9 @@
 # <id>：<中性问题标题>
 
 ```yaml
-id: <沿用导出 feedback.json 的 id>
+id: <附件 id 或维护者分配 id>
 date: <发现日期 YYYY-MM-DD>
-smart_test_version: <metadata 中的版本>
+smart_test_version: <问题发生时版本；未知写 UNKNOWN>
 smart_test_commit: null # 不可获得时保留 null
 host: <codex / claude-code / other / unknown>
 host_version: null
@@ -26,7 +26,7 @@ status: OPEN
 
 ## root_cause
 
-UNKNOWN。定位后改为 SKILL_RULE / REFERENCE_RULE / HELPER_IMPLEMENTATION / ARTIFACT_VALIDATION / GRADER / HOST_VARIANCE / FIXTURE 中的一项，并写明证据。
+UNKNOWN。定位后改为 SKILL_RULE / REFERENCE_RULE / HELPER_IMPLEMENTATION / GRADER / HOST_VARIANCE / FIXTURE 中的一项，并写明证据。
 
 ## fix
 

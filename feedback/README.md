@@ -2,16 +2,16 @@
 
 维护经人工复核的使用反馈。原始业务资料、导出包和运行日志不进入 Git；收到反馈后在 `cases/` 保存脱敏后的问题记录，`templates/feedback-template.md` 提供统一模板。
 
-## 1. 在问题现场导出
+## 1. 在使用现场整理反馈
 
-发现误判、越权、策略错误或漏测后，先保留现场，不为了获得 PASS 改写期望或删除 blocker。尽量在升级 smart_test 前导出。导出方法见随安装包提供的 [反馈导出说明](../skills/smart-test/references/feedback.md)。
+安装到业务项目后，直接要求 Agent 整理本次问题：当时版本、宿主、任务、合成场景、实际/期望行为与最小复现。无需克隆本仓库或运行脚本即可生成可提交文本；默认入口为 [GitHub Issues](https://github.com/eryihan/smart_test/issues)，fork/私有来源遵守其渠道。提交由用户明确要求，不自动上传。
 
-导出包只保存固定枚举、计数和匿名文件编号。业务语义、原始断言和源码不会导出，定位时可能需要补充合成案例。不要为获得更多上下文取消字段白名单或将原始日志、源码粘贴进 case。
+优先保留真实失败和限制，不为获得 PASS 修改期望或删除 blocker。必要时使用 [可选诊断附件](../skills/smart-test/references/feedback.md#可选诊断附件)，白名单只提供计数与版本，不能替代业务语义。没有附件也能创建 case。
 
 ## 2. 创建 feedback case
 
 1. 人工检查导出包，确认没有可识别企业、项目或人员的信息，再自行带回本仓库。需要本地暂存时使用被 Git 忽略的 `feedback/imports/`，不要提交整包。
-2. 复制模板到 `feedback/cases/<id>.md`，沿用 `feedback.json` 中的 id，记录 metadata 中的版本、宿主、工作入口、导出时间及可获得的 commit。
+2. 复制模板到 `feedback/cases/<id>.md`；有附件时沿用反馈 id，否则由维护者分配。记录问题发生时版本、宿主和入口，未知值保留，不把导出时间当发生时间。
 3. 用合成模块、合成数据和中性名称描述 scenario、actual_behavior、expected_behavior。不要填真实人名、内部地址、账号或类名。导出包中为空的描述字段由人工补充，不能假定空值表示没有问题。
 4. 为 expected_behavior 附上依据：已确认的 smart_test 规则、用户明确要求或可靠测试工程事实。当前 Agent 输出只作为 actual_behavior，不能反推为正确期望。
 
@@ -35,7 +35,7 @@
 ## 3. 定位根因并修复
 
 ```text
-真实项目使用 → 发现异常 → 本地脱敏导出 → 人工创建 case
+真实项目使用 → 现场脱敏反馈（附件可选） → 人工创建 case
 → 判断根因层级 → 修复 Skill / reference / helper / grader
 → 增加 regression test / behavioral eval → 重新验证 → 关闭 case
 ```
@@ -47,7 +47,6 @@
 | SKILL_RULE | SKILL.md 的入口、共用约束或路由 |
 | REFERENCE_RULE | 对应 reference 的策略和流程规则 |
 | HELPER_IMPLEMENTATION | Python helper 的确定性实现 |
-| ARTIFACT_VALIDATION | 产物结构、缺失字段或 gate |
 | GRADER | 评测判定逻辑；当前人工或宿主 grader 的检查依据 |
 | HOST_VARIANCE | Codex / Claude Code 宿主执行或加载差异 |
 | FIXTURE | 复现场景、环境或证据本身不正确 |
@@ -57,7 +56,7 @@
 
 ## 4. 转为 regression case
 
-- helper 或 artifact validator 的错误：优先增加可重复的单元测试，先证明修复前失败，再证明修复后通过。
+- 执行、报告、查询或导出工具的错误：优先增加可重复的单元测试，先证明修复前失败，再证明修复后通过。
 - Agent 的策略、权限或判断错误：在 `evals/evals.json` 增加或扩展场景，记录合成 fixture、用户请求和可观察断言。已有场景能覆盖时复用 ID，避免重复。
 - 检查实际工具调用、文件 diff、结构化产物和最终结论，核对行为与证据。每个 case 记录对应测试函数或 eval ID、修复前后结果、宿主与版本、结果记录位置。
 - 无法可靠自动化时，在 `regression_case` 中记录原因、人工复核步骤、证据和局限，不制造恒绿测试。未运行的评测记 NOT_RUN；缺少证据记 UNKNOWN。

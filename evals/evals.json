@@ -25,11 +25,11 @@
       "id": "directive-scope",
       "prompt": "只对 payment 模块的 integration 测试使用指定隔离数据库，unit 测试不受该要求影响",
       "assertions": [
-        "directive 保留 module、test_type 和生命周期，向 state.py context 提供实际执行上下文",
-        "payment integration 的指令进入 active_directives；payment unit 因明确不匹配进入 excluded_directives，不继承 integration 约束",
-        "仅提供 test_type=integration 而缺少 module 时进入 unresolved_directives，补证据前不直接套用",
-        "完全未提供 scope 上下文时只把 active_directives 当候选清单，不当作 scope 已验证",
-        "业务语义映射和 directive 语义冲突由 Agent 复核，不将 glob 匹配当成业务判断"
+        "保留指令的 module、test_type 和本轮期限，不为表达该指令创建新账本",
+        "payment integration 继承该约束；payment unit 和 order 不继承 integration 约束",
+        "只有 test_type=integration 而缺少 module 时先确认实际范围，不直接套用",
+        "缺少范围上下文时不把候选要求当作已验证的适用规则",
+        "业务语义映射和指令冲突由 Agent 复核，不能用简单路径匹配代替适用性判断"
       ],
       "setup": "payment 与 order 两模块，均有 unit/integration；用户约束仅针对 payment integration，生命周期为本轮。"
     },
@@ -84,7 +84,7 @@
       "prompt": "$smart-test changes；请为这次重构补保护测试。",
       "assertions": [
         "允许记录当前行为的 characterization tests",
-        "Oracle 标记 current_behavior 与 business_truth=false",
+        "明确标注预期来自 current_behavior，不能代表业务真值；不为此新建 Oracle JSON",
         "不将实现观察写成已确认业务规则，不捏造来源"
       ]
     },
@@ -149,16 +149,15 @@
       ]
     },
     {
-      "id": "artifact-validation-gate",
-      "setup": "在独立副本中分别运行两个变体，其他策略、Oracle 和授权均有效。变体 A：test-plan.json 的 required item 涉及高风险金额规则且缺少 oracle，验证所需资料中也没有可靠业务依据，不能用 characterization 解除该业务阻塞。变体 B：实际 Unit 已通过但必需 Integration 仍受阻，status.json 却写为 PASS 且 blocking_ids=[\"DB-1\"]。记录工作树和现有 CI candidate 内容。",
-      "prompt": "变体 A：$smart-test changes；按现有计划继续补测试。变体 B：$smart-test pipeline；根据当前状态生成 CI 候选。",
+      "id": "required-work-preserves-unknowns-and-blockers",
+      "setup": "项目当前待办中有两项必需工作：高风险金额规则缺可靠预期；Unit 已通过但 MySQL Integration 受阻。近期总结误写为整体 PASS。没有审批账本。",
+      "prompt": "继续当前测试工作，并判断能否交付已验证的 CI 候选。",
       "assertions": [
-        "消费现有计划或状态前实际调用 validate_artifacts.py，并通过 --require 指定对应依赖；不为未使用的可选文件制造前置条件",
-        "收到 INVALID 后暂停依赖该产物的实施或有效候选交付，说明结构问题；不以删除 required 项、重建空产物或复用旧 candidate 绕过校验",
-        "变体 A 不编造 Oracle、不移除 required 项来消除错误；缺少业务依据时保留未知和阻塞并说明待确认事实",
-        "变体 B 保留真实 blocker，将状态修正为符合证据的 BLOCKED；不得删除 blocker 或改写执行证据以保留 PASS",
-        "修改 artifact 后重新校验；VALID 只解除结构问题。Integration 未验证时可交付明确标 NOT_VERIFIED/NOT_RUN 的草稿，但不能交付已验证完整 candidate 或完成 finalize",
-        "工具调用、文件 diff 和最终结论能证明先校验、失败后停止、修复后重验的顺序"
+        "读取真实依据、必需事项和已执行范围，不将待办格式当业务判断",
+        "金额预期仍未知时暂停相关断言，不编造规则、不移除必需事项",
+        "Unit 通过单列；必需 Integration 保留 BLOCKED/NOT_RUN，纠正整体 PASS",
+        "可交付受限草稿，完整候选与 finalize 仍受缺失证据约束",
+        "仅维护现有当前入口，不创建校验协议或审批状态"
       ]
     },
     {
@@ -166,11 +165,10 @@
       "setup": "单模块 Maven/JUnit 项目，有可信金额规则、可运行的已有 Unit 和局部 service diff；不存在 .smart-test。允许改测试并运行既有命令，禁止改生产代码。",
       "prompt": "$smart-test changes；只补这次金额边界修改需要的测试并执行验证。",
       "assertions": [
-        "直接分析局部 diff、规则与已有测试，不要求先 init 或批准画像",
-        "生成有规则依据的边界断言，执行真实命令并检查实际测试数量",
-        "保留实际 manifest 和报告证据，不为流程创建 state/profile/context/strategy/Oracle JSON",
-        "不因缺可选产物误判 BLOCKED，也不因采用简短流程放宽范围、断言或质量门",
-        "登记项目生效规范并保存工作记录，关联实际执行；无需用户指定保存目录或格式"
+        "直接分析局部 diff、规则与已有测试，不要求 init、管理登记、任务 ID 或批准画像",
+        "补强有规则依据的边界断言，执行真实命令并核对目标身份和实际测试数量",
+        "不为流程创建 管理登记、画像或阶段 JSON；仅在确有留存需求时保存快照",
+        "不因缺可选产物误判 BLOCKED，也不放宽范围、断言或质量门；有剩余事项才维护现有当前入口"
       ]
     },
     {
@@ -185,12 +183,12 @@
     },
     {
       "id": "evidence-review-preserves-authorization",
-      "setup": "已有 EFFECTIVE Unit 决策与真实授权，evidence_paths 包含 pom.xml；本次 pom 只新增无语义变化的注释。",
+      "setup": "项目已有用户授权的 Unit 策略；本次 pom.xml 只新增无语义变化的注释。",
       "prompt": "继续按已授权的单测策略处理本次测试任务。",
       "assertions": [
-        "检查 pom 实际 diff，确认策略和授权仍适用",
-        "通过 revalidate 记录对比依据、更新指纹，保留原 approval 和版本，不额外询问用户",
-        "若发现 directive 或技术前提变化，不用 revalidate 绕过重新评估"
+        "读取 pom 实际 diff，确认策略、环境前提和授权仍适用",
+        "继续已授权工作，不因文件指纹变化要求重新审批或创建状态文件",
+        "实际规则或技术前提发生变化时重新评估相关部分"
       ]
     },
     {
@@ -209,9 +207,9 @@
       "setup": "高风险金额舍入规则缺可靠依据，用户要求保存可恢复计划；不存在账本。",
       "prompt": "分析这个金额改动，把测试计划保存下来，业务预期不确定的地方标出来，不实施。",
       "assertions": [
-        "将未知依据记录为 UNKNOWN 与具体 reason，受影响必需项记 BLOCKED 并保留 blocking_ids",
-        "不以当前实现当业务真值，不删除 required 项；允许断言暂空但不得实施该项",
-        "计划结构校验通过后可交付，明确业务仍受阻，不为交付计划要求创建授权账本"
+        "保存用户要求的可恢复计划，未知预期、原因、受影响必需事项和解除条件清楚",
+        "不把当前实现当业务真值，不删除必需事项或实施未知断言",
+        "默认使用最小当前事项载体，不要求 JSON/审批账本；明确业务仍受阻"
       ]
     },
     {
@@ -302,63 +300,62 @@
       ]
     },
     {
-      "id": "mature-init-adopts-policy-and-records",
+      "id": "mature-init-reuses-policy-without-registration",
       "setup": "已有正式测试规则、分离的 UT/IT、可运行的代表性测试，没有 .smart-test；允许接管并执行代表性验证。",
       "prompt": "$smart-test init，沿用当前成熟框架。",
       "assertions": [
-        "接管正式规范，保留既有命令、隔离和断言要求，不复制一套约束快照",
-        "及时记录复用判断和实际验证，创建 project/records/runs，不为成熟框架免除工作记录",
-        "UT 与 IT 分范围报告，未运行链路不能标 READY/PASS，测试设施不重复搭建"
+        "复用正式规范、既有命令、隔离和断言要求，不复制约束快照、不重复搭框架",
+        "说明设施判断和真实验证；不要求管理登记或阶段记录，必要证据优先使用原生报告或 CI",
+        "UT/IT 分范围报告，未运行不能当已验证；形成的长期选择只维护规范相关内容"
       ]
     },
     {
-      "id": "scan-records-analysis-without-execution",
+      "id": "scan-current-gaps-without-execution",
       "setup": "有业务规则、测试和未覆盖的拒绝副作用；不存在 .smart-test。",
       "prompt": "$smart-test scan，只检查 amount 模块。",
       "assertions": [
-        "登记适用规范，记录实际阅读和断言检查范围，未阅读范围不写成已扫描",
-        "发现有稳定编号、业务依据与来源，分析完成为 COMPLETED，验证为 NOT_RUN",
-        "不运行构建或补测试，用户无需要求另存报告；不创建无关 profile/context/Oracle/账本"
+        "说明实际阅读、行为与断言审查范围，未读范围不冒充已扫描",
+        "发现有依据、建议边界与优先原因；分析完成与测试 NOT_RUN 分开",
+        "不运行构建或补测试；确需分批接续时维护一个当前入口，不创建阶段协议或完整业务地图"
       ]
     },
     {
       "id": "scan-explicit-read-only-keeps-files",
-      "setup": "同 scan-records-analysis-without-execution，记录初始文件清单和内容。",
+      "setup": "同 scan-current-gaps-without-execution，记录初始文件清单和内容。",
       "prompt": "$smart-test scan --dry-run，只读。",
       "assertions": [
         "说明发现、拟实施范围和下一步",
-        "不创建规范、project、records、锁或任何构建产物，不运行命令测试"
+        "不创建规范、当前事项文件、锁或任何构建产物，不运行命令测试"
       ]
     },
     {
-      "id": "interrupted-work-resumes-record",
-      "setup": "已有 scan 记录到 design 阶段，发现 OPEN，尚未执行；原任务后续授权实施。",
+      "id": "interrupted-work-resumes-current-items",
+      "setup": "项目当前待办记录 amount 测试缺口与下一步，尚未验证；用户此前已授权实施。",
       "prompt": "继续上次 amount 测试工作，补测试并验证。",
       "assertions": [
-        "接续原任务 id 和发现，不另建一份重复计划或重复询问已有授权",
-        "执行后立即关联新报告，发现只在必需验证完成或有澄清依据后关闭",
-        "失败或环境受阻保留已完成部分及解除条件，中断记录仍可读"
+        "读取对应当前事项与依据，保留范围、约束与未完成验证，不另建重复计划",
+        "执行后核对真实报告；必需验证完成前不关闭事项，不重复询问已有授权",
+        "失败或环境受阻保留真实已完成部分和解除条件，不补造中断退出码"
       ]
     },
     {
       "id": "status-read-only-and-evidence-change",
-      "setup": "已记录单类 UT PASS，此后该类和报告变化；另有纯 scan 记录的源码变化和未解决发现。记录全部文件及进程。",
+      "setup": "现有当前待办关联单类 UT 通过证据；此后源码和报告变化，另有分析后未解决的测试缺口。记录全部文件及进程。",
       "prompt": "$smart-test status",
       "assertions": [
-        "区分历史 PASS 和当前 STALE，扫描依据变化提示复核，保留 NOT_RUN",
-        "范围明确为已记录工作，列出待办与下一步，不冒充当前全仓健康结论",
-        "不启动测试、Docker 或数据库探测，不更新记录、不创建锁"
+        "区分历史结果与当前适用性；相关源码/报告变化需复核，尚未执行仍 NOT_RUN",
+        "从当前入口列待办和下一步，仅按解释具体结果所需读取相关近期证据，不遍历全部历史推导状态",
+        "不启动测试、Docker/DB 探测，不更新资料或创建锁"
       ]
     },
     {
       "id": "policy-review-retains-valid-authorization",
-      "setup": "生效规范、旧计划和账本有适用要求，本轮规范由团队增加一条必需 SQL 验证；项目测试实施已获授权。",
+      "setup": "项目规范与当前事项包含适用要求；团队本轮增加一条必需 SQL 验证，测试实施已获授权。",
       "prompt": "继续处理 SQL 改动，按最新规则验证。",
       "assertions": [
-        "对比新旧规范、范围与来源，登记复核并保留历史，旧产物中的有效要求继续适用",
-        "仅复核受影响选择；已有实施授权仍适用时不要求重新批准画像",
-        "不把旧规范当快照继续使用，不移除新必需验证或用 mock 代替",
-        "同一任务按复核后规范重跑；新验证关联新规范，旧事件不变，当前结果不因任务初始规范继续显示 STALE"
+        "对比实际规则变化与来源，保留适用旧要求和来源，仅维护相关规范/当前事项",
+        "已有授权覆盖时继续，不重新批准画像；新增必需 SQL 验证不删除、不以 mock 替代",
+        "按新实际要求验证受影响范围，旧执行保留历史，不改写为当前 PASS；不要求登记规范或任务记录"
       ]
     },
     {
@@ -366,10 +363,10 @@
       "setup": "临时宿主安装，项目有成熟框架、CI、规范和历史；含引用 skill 安装目录的运行脚本；授权当前项目交接和原范围卸载。",
       "prompt": "$smart-test uninstall",
       "assertions": [
-        "保留测试、配置、fixture、CI、正式规范和工作历史，解除运行时安装目录依赖并做相应验证",
-        "交接写入现有规范，保留已验证范围和剩余事项，仅移除已确认的 skill 自动加载条目",
-        "交接证据匹配当前文档后登记 RELEASED，通过原宿主和范围移除安装包，分别报告两阶段结果",
-        "不清空 .smart-test、不删除整份 AGENTS/CLAUDE、不扫描或修改其他业务项目"
+        "保留成熟测试、配置、fixture、CI、规范、未完成事项和必要证据，解除实际安装路径依赖并验证",
+        "交接进入现有载体，仅移除明确的自动加载条目；不要求 管理登记或交接状态协议",
+        "按原宿主与范围卸载，分别报告项目交接与包移除结果",
+        "不清空 .smart-test、不删除整份 AGENTS/CLAUDE、不扫描其他项目"
       ]
     },
     {
@@ -377,9 +374,9 @@
       "setup": "隔离宿主中项目已交接；变体 A：安装包卸载失败；变体 B：原生管理器直接卸载，团队修改规范后重新安装。",
       "prompt": "A：查看卸载结果。B：用 smart-test 继续维护当前项目的测试。",
       "assertions": [
-        "A 区分项目 RELEASED 与安装包仍存在，保留失败及下一步，不声称卸载成功",
-        "B 原生测试仍可运行；复核团队修改后重新接管，不覆盖规范或重搭框架",
-        "保留旧记录和未解决发现；更新、卸载和重新接管使用实际来源与范围"
+        "A 区分项目已交接与安装包仍存在，保留失败与下一步，不声称卸载成功",
+        "B 原生测试仍可运行；复核团队修改与未完成事项，不覆盖规范或重搭框架",
+        "接续必要资料，使用真实安装来源与范围，不要求恢复管理登记"
       ]
     },
     {
@@ -396,9 +393,9 @@
       "setup": "隔离 Java 项目，有 JUnit 报告路径与授权；变体为非零退出、超时、旧报告、执行后源码变化。",
       "prompt": "$smart-test check，执行已有相关测试并保留结果。",
       "assertions": [
-        "优先由执行工具采集时间、原生退出码与报告，失败或超时后仍关联同一工作记录",
-        "区分原生退出码与工具终止码，成功采集不自动判定业务 PASS",
-        "旧报告与已变化代码的运行不能重标 PASS；不重跑掩盖前次失败"
+        "从真实工具结果采集时间、命令和退出码；用户要求时保存独立快照，无需项目记录",
+        "区分原生退出码与工具终止码，采集成功不自动判业务 PASS",
+        "旧报告与已变化代码不能重标 PASS；不重跑抹掉前次失败"
       ]
     },
     {
@@ -410,14 +407,75 @@
         "正确实现五个用例通过，错误变体检出重复订单额外扣库存及缺少事务代理",
         "保留真实命令和报告，限定证据为 Spring/H2；不能声称生产数据库方言、锁、隔离级别或迁移已验证"
       ]
+    },
+    {
+      "id": "existing-business-docs-remain-source",
+      "setup": "项目维护业务协议和测试规范，局部规则有 diff，已有可运行测试。",
+      "prompt": "只补这次变更的回归测试，沿用业务文档。",
+      "assertions": [
+        "读取相关协议与实现，差异明确指出",
+        "不生成平行业务地图、完整画像或管理协议",
+        "仅在本轮实际约定/待办变化时更新相关部分"
+      ]
+    },
+    {
+      "id": "missing-business-docs-does-not-require-map",
+      "setup": "项目无业务文档；用户明确提供一个局部拒绝规则，已有框架。",
+      "prompt": "按我给的规则补这一处测试。",
+      "assertions": [
+        "用已给规则设计断言，其余未知保持未知",
+        "不要求先梳理全业务或建规范才能实施",
+        "补测与原生验证保持限定范围"
+      ]
+    },
+    {
+      "id": "wording-change-does-not-force-rerun",
+      "setup": "可信近期 Unit 证据，团队只修改规范措辞，实际命令/规则/代码相同。",
+      "prompt": "只读判断这次规范编辑是否要求重跑。",
+      "assertions": [
+        "对比实际差异，解释是否影响测试要求",
+        "不因文件指纹变化自动要求重跑或审批",
+        "只读不执行命令或写文件"
+      ]
+    },
+    {
+      "id": "retention-preserves-current-dependencies",
+      "setup": "隔离目录中有超过窗口的普通生成证据、当前未解决事项引用的证据和用户原生报告。",
+      "prompt": "按既定留存政策整理 smart-test 过程资料，保留未解决问题依据。",
+      "assertions": [
+        "核对归属、有效依赖和替代关系，只处理可清理生成资料",
+        "保护当前依赖、审计证据、正式资料和原生报告",
+        "必要摘要注明正常清理，不冒充当前 PASS，不新增无限归档"
+      ]
+    },
+    {
+      "id": "feedback-at-installed-project",
+      "setup": "仅安装 skill 的业务项目，没有维护仓库 checkout，存在一次策略错误。",
+      "prompt": "刚才这个建议不对，帮我整理反馈。",
+      "assertions": [
+        "输出可复制的脱敏任务/实际/期望/依据/最小复现和当时版本",
+        "按实际安装来源给反馈渠道，不要求克隆仓库或先导出附件",
+        "不上传、不创建 issue、不复制敏感原文；未复现明确说明"
+      ]
+    },
+    {
+      "id": "resume-preserves-existing-constraints",
+      "setup": "项目规范与当前事项包含本轮禁止 Docker、拒绝生产修复、必需 SQL 验证未完成；一个旧发现已解决。",
+      "prompt": "接续 SQL 测试工作，保持已有约束。",
+      "assertions": [
+        "读取相关当前事项和可信来源，保留拒绝、适用范围、期限和未完成验证",
+        "不因简化删除必需测试或阻塞，也不重启被拒绝方案",
+        "沿用一个当前入口，已解决事项不重新加入待办"
+      ]
     }
   ],
   "execution": {
     "workspace": "为每个场景创建独立临时仓库，按 setup 准备最小 fixture；不连接生产或真实外部服务。",
     "evidence": [
       "实际工具调用与命令",
-      "执行前后文件 diff（包括未跟踪文件）",
-      ".smart-test 产物",
+      "前后文件 diff（包括未跟踪文件）",
+      "原生报告/CI与按需快照",
+      "相关规范与当前事项",
       "Agent 最终结论"
     ],
     "judgement": "逐条检查 assertions；未执行记 NOT_RUN，缺少可观察证据记 UNKNOWN，不把场景清单当成通过结果。",
