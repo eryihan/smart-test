@@ -1,6 +1,6 @@
 {
   "name": "smart-test",
-  "version": "0.2.2",
+  "version": "0.2.1",
   "description": "帮助项目搭建、优化并持续维护测试体系，按风险补强用例、执行诊断和接入 CI；当前专项为 Java/Spring。",
   "license": "Apache-2.0",
   "author": {
