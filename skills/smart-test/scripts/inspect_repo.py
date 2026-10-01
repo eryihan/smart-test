@@ -183,9 +183,19 @@ def gradle_edges(root, modules, settings, warnings):
     return edges
 
 
-def inspect(root, staged=False, base=None, limit=20000):
+def inspect(root, staged=False, base=None, limit=20000, paths=None):
     root = Path(root).resolve()
     names, is_git, warnings = inventory(root)
+    scopes = []
+    for name in paths or []:
+        path = root if name == '.' else relative_file(root, name)
+        if not path.exists():
+            raise ValueError('query scope does not exist')
+        scopes.append(path.relative_to(root).as_posix())
+    if scopes and '.' not in scopes:
+        # Keep build declarations for consumer hints; source reads stay scoped.
+        names = [n for n in names if Path(n).name in BUILD_NAMES or
+                 any(n == scope or n.startswith(scope + '/') for scope in scopes)]
     truncated = len(names) > limit
     if truncated:
         warnings.append('File limit reached; broaden scope manually. Inventory is incomplete.')
@@ -280,6 +290,7 @@ def inspect(root, staged=False, base=None, limit=20000):
     diff['confidence'] = 'LOW'
     diff['fallback'] = 'Run impacted modules and consumers; full verification if graph or dynamic wiring is unresolved.'
     return {'schema_version': 1, 'kind': 'repository-evidence', 'status': 'DISCOVERED',
+            'query_scope': scopes or ['.'],
             'root': str(root), 'build_files': builds, 'modules': modules, 'module_edges': edges,
             'signals': {k: v for k, v in found.items() if v}, 'production_sources': sources,
             'test_sources': tests, 'oracle_candidates': docs, 'ci_files': ci,
@@ -295,6 +306,24 @@ def inspect(root, staged=False, base=None, limit=20000):
                            'No source/config values or secret-bearing log content are emitted.']}
 
 
+def query_result(data, query):
+    shared = {key: data[key] for key in ('schema_version', 'query_scope', 'incomplete', 'warnings', 'limitations')}
+    if query == 'changes':
+        return dict(shared, change=data['change'])
+    if query == 'build':
+        return dict(shared, build_files=data['build_files'], modules=data['modules'],
+                    module_edges=data['module_edges'], environment=data['environment'])
+    if query == 'tests':
+        paths = data['test_sources']
+        return dict(shared, test_source_count=len(paths), test_sources=paths[:100],
+                    paths_omitted=max(0, len(paths) - 100))
+    return dict(shared, build_files=data['build_files'],
+                module_count=len(data['modules']), source_count=len(data['production_sources']),
+                test_source_count=len(data['test_sources']), ci_files=data['ci_files'],
+                signals={key: len(value) for key, value in data['signals'].items()},
+                environment=data['environment'])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', required=True, type=Path)
@@ -302,11 +331,15 @@ def main():
     selection.add_argument('--staged', action='store_true')
     selection.add_argument('--base')
     parser.add_argument('--max-files', type=int, default=20000)
+    parser.add_argument('--path', action='append', help='limit source reads to this path; repeat as needed')
+    parser.add_argument('--query', choices=['overview', 'changes', 'build', 'tests'], default='overview')
+    parser.add_argument('--details', action='store_true', help='detailed static evidence output including fingerprints')
     args = parser.parse_args()
     try:
         if not args.repo.is_dir() or args.max_files < 1:
             raise ValueError('repository must exist and max-files must be positive')
-        emit(inspect(args.repo.resolve(), args.staged, args.base, args.max_files))
+        result = inspect(args.repo.resolve(), args.staged, args.base, args.max_files, args.path)
+        emit(result if args.details else query_result(result, args.query))
     except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
         emit({'error': str(exc)})
         return 2

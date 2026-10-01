@@ -53,6 +53,50 @@ def parse_report(path):
     return counts, identities, declared['tests'] > counts['tests']
 
 
+def read_reports(root, patterns):
+    """Read report facts without inventing an execution window or a task verdict."""
+    if not patterns:
+        raise ValueError('at least one report pattern is required')
+    totals = dict(tests=0, failed=0, errors=0, skipped=0)
+    reports, issues, seen = [], [], set()
+    for pattern in patterns:
+        relative_file(root, pattern)
+        if not pattern.endswith('.xml'):
+            raise ValueError('report patterns must select JUnit XML')
+        paths = sorted(glob.glob(str(root / pattern), recursive=True))
+        if not paths:
+            issues.append({'type': 'REPORTS_MISSING', 'pattern': pattern})
+        for name in paths:
+            rel = Path(name).relative_to(root).as_posix()
+            try:
+                path = relative_file(root, rel, must_exist=True)
+            except (ValueError, OSError):
+                issues.append({'type': 'UNSAFE_OR_MISSING_REPORT', 'path': rel})
+                continue
+            if path in seen:
+                issues.append({'type': 'DUPLICATE_REPORT', 'path': rel})
+                continue
+            seen.add(path)
+            try:
+                counts, identities, incomplete = parse_report(path)
+            except (ET.ParseError, ValueError, OSError):
+                issues.append({'type': 'MALFORMED_REPORT', 'path': rel})
+                continue
+            if incomplete:
+                issues.append({'type': 'INCOMPLETE_TESTCASE_EVIDENCE', 'path': rel})
+            for key in totals:
+                totals[key] += counts[key]
+            reports.append({'path': rel, 'counts': counts, 'executed_test_ids': identities})
+    if not totals['tests']:
+        issues.append({'type': 'ZERO_TESTS'})
+    if totals['failed'] or totals['errors']:
+        issues.append({'type': 'TEST_FAILURES'})
+    return {'schema_version': 1, 'status': 'NOT_VERIFIED', 'freshness': 'UNKNOWN',
+            'report_integrity': 'INVALID' if issues else 'VALID',
+            'counts': totals, 'reports': reports, 'issues': issues,
+            'scope': 'Report facts only; no observed command, execution window or current-version verification.'}
+
+
 def collect(root, manifest):
     if not isinstance(manifest, dict) or manifest.get('example_only'):
         raise ValueError('use an actual execution manifest, not a format example')
@@ -124,13 +168,18 @@ def collect(root, manifest):
             paths = []
             for name in sorted(glob.glob(str(root / pattern), recursive=True)):
                 rel = str(Path(name).relative_to(root))
-                path = relative_file(root, rel, must_exist=True)
+                try:
+                    path = relative_file(root, rel, must_exist=True)
+                    modified = path.stat().st_mtime
+                except (ValueError, OSError):
+                    issues.append({'type': 'UNSAFE_OR_MISSING_REPORT', 'path': rel})
+                    continue
                 if path in seen:
                     issues.append({'type': 'DUPLICATE_REPORT', 'path': rel})
                     continue
                 seen.add(path)
                 paths.append(rel)
-                if not start <= path.stat().st_mtime <= end:
+                if not start <= modified <= end:
                     issues.append({'type': 'STALE_OR_OUTSIDE_RUN_REPORT', 'path': rel, 'run': run['id']})
                     continue
                 try:
@@ -177,14 +226,17 @@ def collect(root, manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, required=True)
-    parser.add_argument('--manifest', type=Path, required=True)
+    selection = parser.add_mutually_exclusive_group(required=True)
+    selection.add_argument('--manifest', type=Path)
+    selection.add_argument('--report', action='append', help='read report facts without asserting freshness')
     args = parser.parse_args()
     try:
         if not args.repo.is_dir():
             raise ValueError('repository does not exist')
-        result = collect(args.repo.resolve(), json.loads(args.manifest.read_text()))
+        result = (collect(args.repo.resolve(), json.loads(args.manifest.read_text())) if args.manifest
+                  else read_reports(args.repo.resolve(), args.report))
         emit(result)
-        return 0 if result['status'] == 'EVIDENCE_PASS' else 1
+        return 0 if result['status'] == 'EVIDENCE_PASS' or result.get('report_integrity') == 'VALID' else 1
     except (ValueError, OSError, KeyError, TypeError) as exc:
         emit({'error': str(exc)})
         return 2

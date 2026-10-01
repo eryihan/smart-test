@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run an authorized native command and attach its observed evidence to a work record."""
+"""Collect native command and report facts, with optional execution snapshots."""
 import argparse
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -14,8 +14,26 @@ import uuid
 
 sys.dont_write_bytecode = True
 from collect_reports import collect
-from common import atomic_json, emit, relative_file
-from project import checkpoint, fingerprints, head, load, policy, record_path, text, writing, PROJECT
+from common import atomic_json, digest, emit, git, relative_file
+
+
+def text(value, label):
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(label + ' must be a nonempty string')
+    return value
+
+
+def fingerprints(root, names):
+    if not isinstance(names, list) or any(not isinstance(n, str) for n in names):
+        raise ValueError('evidence_paths must be a string array')
+    return {name: digest(relative_file(root, name, must_exist=True)) for name in names}
+
+
+def head(root):
+    try:
+        return git(root, 'rev-parse', 'HEAD').decode().strip()
+    except (ValueError, OSError):
+        return None
 
 
 REPORT_GROUP_FIELDS = {'pattern', 'required', 'min_tests', 'allow_skipped', 'expected_test_ids'}
@@ -66,6 +84,8 @@ def normalize_reports(root, reports, kind):
 @contextmanager
 def execution_lock(root):
     lock = relative_file(root, '.smart-test/execution.lock')
+    created = not lock.parent.exists()
+    lock.parent.mkdir(parents=True, exist_ok=True)
     try:
         fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     except FileExistsError:
@@ -76,18 +96,23 @@ def execution_lock(root):
         yield
     finally:
         lock.unlink()
+        if created:
+            try:
+                lock.parent.rmdir()
+            except OSError:
+                pass  # Saved evidence or another writer still needs the directory.
 
 
-def validate(root, identity, spec):
-    load(record_path(root, identity))
+def validate(root, spec):
+    if not root.is_dir():
+        raise ValueError('project directory does not exist')
     if not isinstance(spec, dict) or set(spec) - {
-            'argv', 'summary', 'evidence_paths', 'check_id', 'required_checks', 'kind', 'reports', 'timeout_seconds'}:
+            'argv', 'summary', 'evidence_paths', 'kind', 'reports', 'timeout_seconds'}:
         raise ValueError('unsupported execution input fields')
     argv = spec.get('argv')
     if not isinstance(argv, list) or not argv or any(not isinstance(a, str) or not a for a in argv):
         raise ValueError('argv must be a nonempty string array')
     text(spec.get('summary'), 'summary')
-    text(spec.get('check_id', 'overall'), 'check id')
     kind = spec.get('kind', 'test')
     if kind not in {'test', 'build', 'compile'}:
         raise ValueError('kind must be test, build or compile')
@@ -95,13 +120,6 @@ def validate(root, identity, spec):
     if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 0 < timeout <= 86400:
         raise ValueError('timeout_seconds must be positive and at most 86400')
     normalize_reports(root, spec.get('reports', []), kind)
-    required = spec.get('required_checks')
-    if required is not None and (not isinstance(required, list) or not required or
-            any(not isinstance(c, str) or not c.strip() for c in required) or len(set(required)) != len(required)):
-        raise ValueError('required_checks must contain unique nonempty check ids')
-    registry = load(relative_file(root, PROJECT, must_exist=True))
-    if policy(root, registry['policy']['path']) != registry['policy']:
-        raise ValueError('review the current testing policy before execution')
     return fingerprints(root, spec.get('evidence_paths', []))
 
 
@@ -117,24 +135,18 @@ def stop(process):
     process.wait()
 
 
-def execute(root, identity, spec):
+def execute(root, spec, save_evidence=False):
     root = Path(root).resolve()
-    before = validate(root, identity, spec)
+    before = validate(root, spec)
     report_groups = normalize_reports(root, spec.get('reports', []), spec.get('kind', 'test'))
-    observed_policy = load(relative_file(root, PROJECT, must_exist=True))['policy']
-    check_id = spec.get('check_id', 'overall')
+    if not isinstance(save_evidence, bool):
+        raise ValueError('save_evidence must be boolean')
     kind = spec.get('kind', 'test')
-    metadata = {'check_id': check_id, 'verification_kind': 'test' if kind == 'test' else 'build'}
-    if 'required_checks' in spec:
-        metadata['required_checks'] = spec['required_checks']
     with execution_lock(root):
-        with writing(root):
-            checkpoint(root, identity, dict(metadata, stage='verification', status='IN_PROGRESS',
-                       summary='Starting native command: ' + spec['summary'],
-                       evidence_paths=spec.get('evidence_paths', [])))
         run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S') + '-' + uuid.uuid4().hex[:10]
-        folder = relative_file(root, '.smart-test/runs/' + run_id)
-        folder.mkdir(mode=0o700, parents=True)
+        folder = relative_file(root, '.smart-test/runs/' + run_id) if save_evidence else None
+        if folder is not None:
+            folder.mkdir(mode=0o700, parents=True)
         started = datetime.now(timezone.utc)
         observed_head = head(root)
         process, termination = None, None
@@ -154,6 +166,9 @@ def execute(root, identity, spec):
         groups, seen, blockers = [], set(), []
         for index, requested in enumerate(report_groups):
             pattern = requested['pattern']
+            if folder is None:
+                groups.append(dict(requested))
+                continue
             target = folder / ('reports-' + str(index))
             target.mkdir(mode=0o700)
             for source in sorted(root.glob(pattern)):
@@ -177,11 +192,9 @@ def execute(root, identity, spec):
             group['pattern'] = target.relative_to(root).as_posix() + '/*.xml'
             groups.append(group)
         after = {}
-        remaining = []
         for name in spec.get('evidence_paths', []):
             try:
                 after.update(fingerprints(root, [name]))
-                remaining.append(name)
             except (ValueError, OSError):
                 after[name] = None
                 blockers.append({'type': 'EVIDENCE_REMOVED_OR_UNREADABLE'})
@@ -190,33 +203,45 @@ def execute(root, identity, spec):
         run = {'id': run_id, 'kind': kind, 'argv': spec['argv'], 'cwd': '.',
                'started_at': started.isoformat(), 'finished_at': finished.isoformat(),
                'exit_code': code, 'reports': groups, 'git_head': observed_head,
-               'policy': observed_policy, 'evidence_before': before, 'evidence_after': after,
+               'evidence_before': before, 'evidence_after': after,
                'exit_code_source': 'native_process' if not termination else 'execution_helper'}
         if termination:
             run['termination'] = termination
         manifest = {'schema_version': 1, 'required_run_ids': [run_id], 'runs': [run], 'blockers': blockers}
-        name = (folder / 'manifest.json').relative_to(root).as_posix()
-        atomic_json(root / name, manifest)
+        name = (folder / 'manifest.json').relative_to(root).as_posix() if folder is not None else None
+        if name is not None:
+            atomic_json(root / name, manifest)
         result = collect(root, manifest)
         # Successful execution still needs assertion, scope and applicable quality-gate review.
-        with writing(root):
-            checkpoint(root, identity, dict(metadata, stage='verification',
-                       status='PARTIAL' if code == 0 else 'FAILED', summary=spec['summary'],
-                       verification='NOT_VERIFIED' if code == 0 else 'FAILED',
-                       evidence_paths=remaining, run_manifests=[name]))
         return {'manifest': name, 'exit_code': code, 'termination': termination,
                 'evidence_status': result['status'], 'counts': result['counts'],
+                'issues': result['issues'], 'execution': manifest,
+                'scope': result['scope'],
                 'evidence_changed_during_execution': before != run['evidence_after']}
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', type=Path, required=True)
-    parser.add_argument('--id', required=True)
-    parser.add_argument('--input', type=Path, required=True)
+    parser.add_argument('--input', type=Path, help='advanced execution input with grouped report constraints')
+    parser.add_argument('--kind', choices=['test', 'compile', 'build'])
+    parser.add_argument('--report', action='append', help='exact JUnit pattern; repeat for required groups')
+    parser.add_argument('--evidence', action='append', help='referenced source/configuration path to check for changes')
+    parser.add_argument('--timeout', type=float)
+    parser.add_argument('--save-evidence', action='store_true')
+    parser.add_argument('argv', nargs=argparse.REMAINDER, help='native command after --')
     args = parser.parse_args()
     try:
-        result = execute(args.repo, args.id, json.loads(args.input.read_text(encoding='utf-8')))
+        if args.input:
+            if args.argv or args.kind or args.report or args.evidence or args.timeout is not None:
+                raise ValueError('--input cannot be combined with native command options')
+            spec = json.loads(args.input.read_text(encoding='utf-8'))
+        else:
+            spec = {'argv': args.argv[1:] if args.argv[:1] == ['--'] else args.argv,
+                    'summary': 'Native command', 'kind': args.kind or 'test',
+                    'reports': args.report or [], 'evidence_paths': args.evidence or [],
+                    'timeout_seconds': args.timeout if args.timeout is not None else 600}
+        result = execute(args.repo, spec, args.save_evidence)
         emit(result)
         return 0 if result['exit_code'] == 0 and result['evidence_status'] == 'EVIDENCE_PASS' else 1
     except (ValueError, OSError, KeyError, TypeError) as exc:

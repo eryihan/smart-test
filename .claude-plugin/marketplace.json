@@ -10,7 +10,7 @@
     {
       "name": "smart-test",
       "source": "./",
-      "description": "维护项目测试规范、设施与验证记录，提供 Java/Spring 专项指导、状态查看及更新卸载入口。",
+      "description": "搭建、优化并持续维护项目测试体系，提供 Java/Spring 专项、状态查看和安装生命周期入口。",
       "license": "Apache-2.0",
       "category": "testing"
     }

@@ -4,7 +4,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import os
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 import re
 import shutil
 import stat
@@ -12,8 +12,8 @@ import sys
 import uuid
 
 sys.dont_write_bytecode = True
-from catalog import ARTIFACTS, FEEDBACK_TYPES, HOSTS, SIGNALS, STATUSES, SUITES, WORKFLOWS
-from common import emit, relative_file, safe_name
+from catalog import FEEDBACK_TYPES, HOSTS, STATUSES, WORKFLOWS
+from common import emit, relative_file
 MAX_BYTES = 2_000_000
 MAX_ITEMS = 1000
 MAX_RUN_FILES = 100
@@ -31,20 +31,12 @@ def rows(value):
     return value if isinstance(value, list) else []
 
 
-def selected(values, allowed):
-    return sorted({v for v in values if isinstance(v, str) and v in allowed})
-
-
 def number(value, low=0, high=1_000_000_000):
     return value if type(value) in (int, float) and low <= value <= high else None
 
 
 def count(value):
     return len(value) if isinstance(value, (list, dict)) else None
-
-
-def present(value):
-    return isinstance(value, str) and bool(value.strip())
 
 
 def read_json(root, name):
@@ -66,90 +58,6 @@ def read_json(root, name):
     return data, 'READ'
 
 
-def coverage(data):
-    data = obj(data)
-    threshold = data.get('threshold')
-    if isinstance(threshold, dict):
-        threshold = {key: number(threshold[key], high=100)
-                     for key in ('overall', 'incremental') if key in threshold}
-        threshold = {key: value for key, value in threshold.items() if value is not None} or None
-    else:
-        threshold = number(threshold, high=100)
-    return {
-        'mode': enum(data.get('mode'), {'UNSPECIFIED', 'REPORT_ONLY', 'OVERALL', 'INCREMENTAL', 'BOTH'}),
-        'metric': enum(data.get('metric'), {'LINE', 'BRANCH', 'INSTRUCTION', 'METHOD', 'CLASS'}),
-        'threshold': threshold,
-        'baseline_present': present(data.get('baseline')),
-        'scope_type': enum(obj(data.get('scope')).get('type'), {'REPOSITORY', 'MODULE', 'PATH'}),
-    }
-
-
-def summarize(name, data):
-    result = {'status': enum(data.get('status'), STATUSES),
-              'example_only': data.get('example_only') is True}
-    if name == 'project-profile.json':
-        signals = data.get('signals', [])
-        result.update(signals=selected(signals if isinstance(signals, (dict, list)) else [], SIGNALS),
-                      module_count=count(data.get('modules')))
-    elif name == 'effective-context.json':
-        data = obj(data.get('effective_context', data))
-        result.update(directive_count=count(data.get('directive_ids')),
-                      decision_count=count(data.get('decision_ids')),
-                      conflict_count=count(data.get('conflicts')),
-                      unresolved_count=count(data.get('unresolved')))
-        constraints = obj(data.get('constraints'))
-        result['constraints'] = {k: constraints[k] for k in ('docker_allowed', 'production_code_modify')
-                                 if type(constraints.get(k)) is bool}
-    elif name == 'business-oracle.json':
-        entries = [data] if 'business_truth' in data else []
-        for key in ('entries', 'items', 'claims', 'oracle'):
-            entries.extend(v for v in rows(data.get(key)) if isinstance(v, dict))
-        result.update(entry_count=len(entries),
-                      business_truth_count=sum(e.get('business_truth') is True for e in entries),
-                      characterization_count=sum(e.get('business_truth') is False for e in entries),
-                      missing_source_count=sum(e.get('business_truth') is True and not present(e.get('source')) for e in entries),
-                      missing_claim_count=sum(e.get('business_truth') is True and not present(e.get('claim')) for e in entries))
-    elif name == 'test-policy.json':
-        result['required_suites'] = selected(
-            [s.get('suite') if isinstance(s, dict) else s for s in rows(data.get('required_suites'))], SUITES)
-        result['coverage'] = coverage(data.get('coverage'))
-        if type(data.get('production_code_modify')) is bool:
-            result['production_code_modify'] = data['production_code_modify']
-    elif name == 'test-plan.json':
-        items = rows(obj(data.get('test_plan', data)).get('items'))
-        result['item_count'] = len(items)
-        result['items'] = [
-            {'item': i + 1, 'required': item.get('required') is True,
-             'risk': enum(item.get('risk'), {'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'}),
-             'suite': enum(item.get('suite'), SUITES),
-             'assertion_count': count(item.get('assertions')),
-             'oracle_present': isinstance(item.get('oracle'), dict),
-             'business_truth': obj(item.get('oracle')).get('business_truth') is True}
-            for i, item in enumerate(items[:MAX_ITEMS]) if isinstance(item, dict)]
-    elif name == 'status.json':
-        result.update(blocking_count=count(data.get('blocking_ids')),
-                      blocker_count=count(data.get('blockers')))
-        stages, pending, stage_count = [], [data], 0
-        while pending:
-            parent = pending.pop()
-            children = obj(parent.get('stages')) if 'stages' in parent else {
-                k: v for k, v in parent.items() if isinstance(v, dict)
-                and ('status' in v or 'blocking_ids' in v)}
-            for child in children.values():
-                if not isinstance(child, dict):
-                    continue
-                stage_count += 1
-                if len(stages) < MAX_ITEMS:
-                    stages.append({'stage': stage_count,
-                                   'status': enum(child.get('status'), STATUSES),
-                                   'blocking_count': count(child.get('blocking_ids')),
-                                   'blocker_count': count(child.get('blockers'))})
-                pending.append(child)
-        result['stages'] = stages
-        result['stage_count'] = stage_count
-    return result
-
-
 def run_summary(data):
     result = {'status': enum(data.get('status'), STATUSES),
               'blocker_count': count(data.get('blockers')),
@@ -169,72 +77,6 @@ def run_summary(data):
             entry['requires_test_report'] = run['requires_test_report']
         result['runs'].append(entry)
     return result
-
-
-def project_summary(root):
-    data, state = read_json(root, '.smart-test/project.json')
-    result = {'input_state': state,
-              'management': enum(data.get('management'), {'MANAGED', 'RELEASED'}),
-              'policy_registered': isinstance(data.get('policy'), dict),
-              'lifecycle_event_count': count(data.get('events')), 'records': []}
-    directory = relative_file(root, '.smart-test/records')
-    if not directory.exists():
-        result.update(record_count=0, records_omitted=0)
-        return result
-    if not directory.is_dir():
-        raise ValueError('invalid records directory')
-    paths = sorted(directory.glob('*.json'))
-    result.update(record_count=len(paths), records_omitted=max(0, len(paths) - MAX_RUN_FILES))
-    for path in paths[:MAX_RUN_FILES]:
-        data, state = read_json(root, '.smart-test/records/' + path.name)
-        events = [obj(e) for e in rows(data.get('events'))]
-        result['records'].append({
-            'record': len(result['records']) + 1, 'input_state': state,
-            'workflow': enum(data.get('workflow'), WORKFLOWS), 'event_count': len(events),
-            'events_omitted': max(0, len(events) - MAX_ITEMS),
-            'events': [{
-                'stage': enum(e.get('stage'), {'discovery', 'design', 'implementation',
-                                              'verification', 'handover', 'installation'}),
-                'status': enum(e.get('status'), {'IN_PROGRESS', 'COMPLETED', 'PARTIAL', 'BLOCKED', 'FAILED'}),
-                'verification': enum(e.get('verification'), {'NOT_RUN', 'PASS', 'PARTIAL', 'FAILED', 'NOT_VERIFIED'}),
-                'evidence_count': count(e.get('evidence')), 'execution_count': count(e.get('execution')),
-                'findings': {s: sum(obj(f).get('status') == s for f in rows(e.get('findings')))
-                             for s in ('OPEN', 'BLOCKED', 'RESOLVED')},
-            } for e in events[:MAX_ITEMS]],
-        })
-    return result
-
-
-def change_summary(evidence):
-    risks = {}
-    for record in rows(evidence.get('risk_indicators')):
-        if isinstance(record, dict) and isinstance(record.get('path'), str):
-            risks[record['path']] = selected(rows(record.get('indicators')), SIGNALS)
-    files = rows(obj(evidence.get('change')).get('files'))
-    output = []
-    for record in files[:MAX_ITEMS]:
-        if not isinstance(record, dict) or not isinstance(record.get('path'), str):
-            continue
-        raw = record['path']
-        path = PurePosixPath(raw)
-        if path.is_absolute() or '..' in path.parts or '\\' in raw or ':' in raw or not path.parts:
-            raise ValueError('unsafe change path')
-        if not safe_name(raw):
-            continue
-        extension = path.suffix if path.suffix in {'.java', '.kt', '.xml', '.sql', '.gradle', '.kts', '.yml', '.yaml', '.properties'} else '.file'
-        # Never retain module, package, class, author or original filename text.
-        category = next((c for c in ('src/main/java', 'src/test/java', 'src/main/resources', 'src/test/resources')
-                         if tuple(c.split('/')) in
-                         [path.parts[i:i + 3] for i in range(len(path.parts) - 2)]), 'files')
-        change = {'A': 'added', '?': 'untracked', 'M': 'modified', 'D': 'deleted', 'R': 'renamed',
-                  'added': 'added', 'untracked': 'untracked', 'modified': 'modified', 'deleted': 'deleted', 'renamed': 'renamed'}
-        kind = record.get('change_type', record.get('status'))
-        output.append({'path': category + '/file-' + str(len(output) + 1).zfill(4) + extension,
-                       'change_type': change.get(kind) if isinstance(kind, str) else None,
-                       'risk_signals': sorted(set(risks.get(raw, [])) |
-                                              set(selected(rows(record.get('risk_signals')), SIGNALS)))})
-    return {'reported_file_count': len(files), 'files': output,
-            'paths': 'GENERATED_ALIASES', 'source': 'EXISTING_REPOSITORY_EVIDENCE_ONLY'}
 
 
 def version_context():
@@ -264,12 +106,18 @@ def version_context():
             'commit_note': 'Checkout HEAD does not prove an unmodified installation.'}
 
 
-def export_feedback(repo, output, host, workflow, feedback_type='OTHER', host_version=None):
+def export_feedback(repo, output, host, workflow, feedback_type='OTHER', host_version=None,
+                    run_ids=None):
     if host not in HOSTS or workflow not in WORKFLOWS or feedback_type not in FEEDBACK_TYPES:
         raise ValueError('invalid metadata enum')
     if host_version is not None and (not isinstance(host_version, str) or
                                     not re.fullmatch(r'\d{1,4}(?:\.\d{1,4}){1,3}', host_version)):
         raise ValueError('host version must be numeric; omit unknown versions')
+    if run_ids is not None and (not isinstance(run_ids, list) or not run_ids or
+            len(run_ids) > MAX_RUN_FILES or
+            any(not isinstance(identity, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,96}', identity)
+                for identity in run_ids) or len(set(run_ids)) != len(run_ids)):
+        raise ValueError('invalid run selection')
     root = Path(repo).resolve()
     if not root.is_dir():
         raise ValueError('repository missing')
@@ -296,26 +144,23 @@ def export_feedback(repo, output, host, workflow, feedback_type='OTHER', host_ve
                     scenario=None, actual_behavior=None, expected_behavior=None,
                     root_cause='UNKNOWN', fix=None, regression_case=None, status='OPEN')
     bundle = {'metadata.json': metadata, 'feedback.json': feedback}
-    for name in ARTIFACTS:
-        data, state = read_json(root, '.smart-test/' + name)
-        bundle[name] = {'input_state': state, 'summary': summarize(name, data) if state == 'READ' else {}}
-    data, state = read_json(root, '.smart-test/repository-evidence.json')
-    bundle['sanitized-change-summary.json'] = {'input_state': state, 'summary': change_summary(data)}
-    data, state = read_json(root, '.smart-test/execution-summary.json')
-    execution = {'input_state': state, 'summary': run_summary(data), 'manifests': []}
-    execution['project_work'] = project_summary(root)
+    execution = {'manifests': []}
     runs = relative_file(root, '.smart-test/runs')
     if runs.exists():
         if not runs.is_dir():
             raise ValueError('invalid runs directory')
-        directories = sorted(runs.iterdir())
+        directories = ([runs / identity for identity in run_ids] if run_ids is not None
+                       else sorted(runs.iterdir(), reverse=True))
         execution['run_directory_count'] = len(directories)
+        execution['runs_omitted'] = max(0, len(directories) - MAX_RUN_FILES)
         for directory in directories[:MAX_RUN_FILES]:
             if directory.is_symlink():
                 raise ValueError('run symlink forbidden')
-            if directory.is_dir():
+            if directory.is_dir() or run_ids is not None:
                 data, state = read_json(root, '.smart-test/runs/' + directory.name + '/manifest.json')
                 execution['manifests'].append({'input_state': state, 'summary': run_summary(data)})
+    elif run_ids is not None:
+        execution['manifests'] = [{'input_state': 'MISSING', 'summary': run_summary({})} for _ in run_ids]
     bundle['execution-summary.json'] = execution
 
     # Read/sanitize every input before creating output. Never merge or overwrite a bundle.
@@ -347,9 +192,11 @@ def main():
     parser.add_argument('--host-version', help='numeric version supplied by the caller; never probes the host')
     parser.add_argument('--workflow', required=True, choices=sorted(WORKFLOWS))
     parser.add_argument('--feedback-type', default='OTHER', choices=sorted(FEEDBACK_TYPES))
+    parser.add_argument('--run', action='append', help='export only this saved run; may be repeated')
     args = parser.parse_args()
     try:
-        emit(export_feedback(args.repo, args.output, args.host, args.workflow, args.feedback_type, args.host_version))
+        emit(export_feedback(args.repo, args.output, args.host, args.workflow, args.feedback_type,
+                             args.host_version, args.run))
         return 0
     except (ValueError, OSError, TypeError, RecursionError):
         # Exceptions can include project paths or attacker-controlled JSON. Never echo them.
