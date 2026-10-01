@@ -88,6 +88,8 @@ python3 tools/build_package.py
 
 `dist/` 不提交到 Git。Claude 原生插件分发直接使用仓库中的 `.claude-plugin/` 和 `skills/`，无需用户运行打包脚本。
 
+`tests/`、`evals/`、`tools/`、长期开发文档和脱敏反馈属于公开源码的维护资料，不进入独立 skill 包。`reports/` 中的项目专项报告、原始日志与运行证据仅在本地保留，由 `.gitignore` 排除；历史评审和验收文档也沿用本地忽略规则。公开示例使用合成 fixture，反馈 case 须经人工脱敏复核。
+
 ## 发布更新
 
 1. 修改共用 skill 源码，完成相关测试及清单验证。

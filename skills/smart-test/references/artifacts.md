@@ -66,6 +66,8 @@ JSON 使用 UTF-8。只保存脱敏摘要和必要报告，不保存凭证或生
 
 ## 最小结构
 
+以下结构用于实际需要独立复用的计划、约束，或消费已有产物时。普通任务将计划与发现写入工作记录即可，不另建 context、plan 或 status 文件。复杂指令与决策依赖见 [可选账本](governance.md)。
+
 所有 JSON 顶层为对象。示例中的 `example_only: true` 会被拒绝；移除标志前必须用实际证据替换内容。
 
 - **business-oracle.json**：支持单条依据，或 entries/items/claims/oracle 数组。已知依据必须有布尔 business_truth、非空 source 与 claim。characterization 使用 `business_truth: false`，source 引用当前版本/观察，claim 说明观察行为；Agent 仍需核对其适用风险。暂缺依据用 `{"status":"UNKNOWN","reason":"具体缺失事实"}` 表达，不能用空对象充当已知依据。

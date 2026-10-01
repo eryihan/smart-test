@@ -1,6 +1,6 @@
 # 真实项目反馈与回归
 
-维护经人工复核的使用反馈。原始业务资料、导出包和运行日志不进入 Git；`cases/` 只保存脱敏后的问题记录，`templates/feedback-template.md` 提供统一模板。EXAMPLE 为合成示例，未发生真实反馈或修复。
+维护经人工复核的使用反馈。原始业务资料、导出包和运行日志不进入 Git；收到反馈后在 `cases/` 保存脱敏后的问题记录，`templates/feedback-template.md` 提供统一模板。
 
 ## 1. 在问题现场导出
 
@@ -68,4 +68,4 @@
 
 状态只使用 `OPEN / FIXED / CLOSED`：OPEN 表示待定位或处理；FIXED 表示已有修复但验证未完成；CLOSED 表示修复和回归证据已复核。复发时重新置为 OPEN，不引入额外状态。
 
-关闭前须记录根因、修复、regression 关联和实际验证结果。无法自动化的反馈只有在记录原因且完成人工复核后才能关闭；仅增加一个尚未执行的 eval 不足以关闭问题。记录格式见模板；[MyBatis 示例](cases/EXAMPLE-mybatis-xml.md) 关联现有 SQL 场景，状态为未验证。
+关闭前须记录根因、修复、regression 关联和实际验证结果。无法自动化的反馈只有在记录原因且完成人工复核后才能关闭；仅增加一个尚未执行的 eval 不足以关闭问题。记录格式见 [反馈模板](templates/feedback-template.md)。

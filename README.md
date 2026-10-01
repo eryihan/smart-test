@@ -167,4 +167,6 @@ Claude 的第三方市场默认不自动更新；需要时可在 `/plugin` 的 M
 
 [开发架构](docs/development-architecture.md) 说明 Agent、辅助工具和目标项目的职责及扩展边界；[开发与分发](docs/development.md) 说明验证、离线安装和打包。二者随代码维护，不进入独立 skill 安装包。历史验证结果仅对应其记录的版本。
 
+公开仓库保留测试、评测 fixture、分发工具和脱敏反馈；项目专项报告、原始日志与运行证据保留在本地的 `reports/`，不提交。独立 skill 包只包含 `skills/smart-test/`；Claude 插件另使用 `.claude-plugin/` 和 `commands/`。
+
 安装机制参考 [Claude Code 插件安装](https://code.claude.com/docs/en/plugins/install)、[Claude Code 插件市场](https://code.claude.com/docs/en/plugin-marketplaces) 和 [OpenAI 官方 skill-installer](https://github.com/openai/skills/tree/main/skills/.system/skill-installer)。
