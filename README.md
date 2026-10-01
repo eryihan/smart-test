@@ -1,6 +1,6 @@
 # smart_test
 
-smart_test 是企业级后端项目的测试助手，维护项目测试规范、设施、用例和验证记录：根据实际语言、运行时、架构、业务风险和已有设施选择测试方案，评估测试缺口、补测试、执行诊断并生成 CI 候选。
+smart_test 是企业级后端项目的测试助手，搭建、优化并持续维护项目测试体系：根据实际语言、运行时、架构、业务风险和已有设施选择测试方案，评估测试缺口、补测试、执行诊断并生成 CI 候选。
 
 当前专项实现覆盖 Java 8+、Spring Boot 2/3、Maven/Gradle。其他语言支持按实际项目逐步扩展。数据库、中间件测试使用隔离环境，结果列明未执行范围。
 
@@ -109,13 +109,13 @@ Codex:       $smart-test help
 Claude Code: /smart-test:help
 ```
 
-首次正常任务接管已有测试约定，维护一份生效项目规范；每次任务默认在 `.smart-test/records/` 记录检查范围、发现、修改与下一步，实际执行关联运行证据。scan 会留存分析过程，help、status、明确只读和 dry-run 不写文件。Unit 与数据库集成分别报告结果。
+已有规范直接复用，搭建或长期约定形成时才补充；局部任务无需 init、项目登记或任务 ID。需要跨任务接续的缺口进入项目现有待办，运行证据优先使用原生报告和 CI，必要时才保存快照。普通任务不生成整套画像、阶段记录或审批账本；Python 工具按需使用。Unit 与数据库集成分别报告结果。资料维护和有限留存见 [项目资料](skills/smart-test/references/artifacts.md)。
 
 用户只需给出测试目标与范围，Agent 负责选择方案、维护规范、记录和交付。测试代码、构建、执行脚本和正式 CI 留在项目原生位置，可独立于 skill 运行。
 
 ## 4. 更新和卸载
 
-维护入口：`update` 更新安装包，`uninstall` 交接当前项目并卸载。交接保留成熟测试框架、规范和历史，解除对 skill 安装路径的依赖；安装包卸载与项目交接分别报告。具体步骤见 [退出管理与卸载](skills/smart-test/references/help.md#退出管理与卸载)。
+维护入口：`update` 更新安装包，`uninstall` 交接当前项目并卸载。交接保留成熟测试框架、规范、未完成事项与必要证据，解除对 skill 安装路径的依赖；安装包卸载与项目交接分别报告。具体步骤见 [退出管理与卸载](skills/smart-test/references/help.md#退出管理与卸载)。
 
 ```text
 Codex:       $smart-test uninstall
@@ -155,13 +155,13 @@ claude plugin uninstall smart-test@smart-test --keep-data
 $smart-test update
 ```
 
-使用 `$smart-test uninstall` 完成交接，再按宿主规则移除已确认的 skill 目录。直接移除安装包不会执行项目交接，但项目内的测试代码、规范和 `.smart-test/` 历史仍保留。
+使用 `$smart-test uninstall` 完成交接，再按宿主规则移除已确认的 skill 目录。直接移除安装包不会执行项目交接，但项目内的测试代码、规范与必要资料仍保留。
 
 Claude 的第三方市场默认不自动更新；需要时可在 `/plugin` 的 Marketplaces 页开启该市场的自动更新。自动更新后的当前会话仍需按提示重新加载。[Claude 更新机制](https://code.claude.com/docs/en/discover-plugins#keep-plugins-updated)
 
 ## 5. 使用问题反馈
 
-在当前对话中请求导出脱敏反馈，并指定目标项目外的新目录；导出不自动上传。用户操作见 [使用指南](skills/smart-test/references/help.md#反馈)，维护者收集、定位和回归见 [反馈处理](feedback/README.md)。
+在使用现场直接说“刚才这个处理不对，帮我整理反馈”。Agent 生成可提交的脱敏说明并按安装来源提供反馈入口，默认上游为 [GitHub Issues](https://github.com/eryihan/smart_test/issues)。无需克隆维护仓库；提交须明确授权。仅定位需要时导出诊断附件，不自动上传。用户操作见 [反馈说明](skills/smart-test/references/feedback.md)，维护者处理见 [feedback/README.md](feedback/README.md)。
 
 ## 6. 维护者资料
 
