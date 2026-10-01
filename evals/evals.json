@@ -37,11 +37,22 @@
       "id": "business-conflict",
       "prompt": "需求文档规定拒绝后状态为 REJECTED，但当前实现返回 CLOSED，请补测试",
       "assertions": [
-        "测试断言引用需求中的 REJECTED",
-        "记录 BUSINESS_LOGIC_CONFLICT 或 PRODUCT_DEFECT",
+        "按可信需求补 REJECTED 回归断言，不因实现返回 CLOSED 停止补测",
+        "正确测试真实复现后归为 PRODUCT_DEFECT；未执行时只报告实现与需求差异，不冒充已复现",
         "没有授权时不静默修改生产代码"
       ],
       "setup": "docs/approval.md 明确拒绝后为 REJECTED；实现返回 CLOSED；禁止修改生产代码。"
+    },
+    {
+      "id": "conflicting-business-sources",
+      "setup": "复制 evals/fixtures/amount-rule 到独立临时目录；rules.md 允许金额等于剩余额度，另一份当前生效协议要求严格小于；两者权威性相同且没有优先约定。金额非空、大于 0 和拒绝后无副作用的规则一致。只允许修改测试。",
+      "prompt": "补金额边界测试，两份生效文档对等于额度的处理不一致；先完成能确定的部分。",
+      "assertions": [
+        "将等于额度的预期归为 BUSINESS_AMBIGUITY，说明具体冲突和待确认事实",
+        "不凭实现、文件顺序或模型偏好选择其中一个预期，不用 characterization 消除已知歧义",
+        "继续补强预期一致的拒绝路径和无副作用断言，暂停的仅是依赖争议预期的部分",
+        "不修改生产代码或重写业务文档；最终结论保留争议边界未验证"
+      ]
     },
     {
       "id": "integration-blocked",
@@ -469,6 +480,40 @@
       ]
     }
   ],
+  "trigger_queries": [
+    {
+      "query": "为这次 Mapper JOIN 修改补回归测试，检查分页和租户隔离。",
+      "should_trigger": true
+    },
+    {
+      "query": "只评估这个 service 的现有测试有没有保护拒绝后的副作用，不改代码。",
+      "should_trigger": true
+    },
+    {
+      "query": "这组单测最近一起跑会失败，单独跑却通过，帮我定位原因。",
+      "should_trigger": true
+    },
+    {
+      "query": "把现有 Maven 单测和数据库集成测试接入 GitHub Actions。",
+      "should_trigger": true
+    },
+    {
+      "query": "解释一下单元测试和集成测试有什么区别，不分析项目。",
+      "should_trigger": false
+    },
+    {
+      "query": "解释这段 Mapper SQL 为什么会返回重复行，只讲查询含义。",
+      "should_trigger": false
+    },
+    {
+      "query": "只修改这个 service 的生产实现，不补测试、不运行验证。",
+      "should_trigger": false
+    },
+    {
+      "query": "用 Playwright 验证前端弹窗和按钮交互，不涉及后端测试。",
+      "should_trigger": false
+    }
+  ],
   "execution": {
     "workspace": "为每个场景创建独立临时仓库，按 setup 准备最小 fixture；不连接生产或真实外部服务。",
     "evidence": [
@@ -479,6 +524,7 @@
       "Agent 最终结论"
     ],
     "judgement": "逐条检查 assertions；未执行记 NOT_RUN，缺少可观察证据记 UNKNOWN，不把场景清单当成通过结果。",
-    "comparison": "可选：在相同 fixture、宿主、模型和权限下分别不加载与加载 smart_test，比较规则遵守和副作用；两次使用独立副本。"
+    "comparison": "改描述时检查触发正反例；改工作流程时选 2–3 个受影响场景，在相同 fixture、宿主、模型和权限的独立副本中比较旧版与新版。记录实际结果和多余询问/操作，无需另建评测框架或统一分数。",
+    "trigger_check": "在新会话中逐条发送 trigger_queries，不显式调用或预加载 skill；观察是否读取 smart-test/SKILL.md。should_trigger 是预期，不能代替实际结果。"
   }
 }
